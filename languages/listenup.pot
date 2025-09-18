@@ -1,0 +1,368 @@
+# Copyright (C) 2025 Adam Greenwell
+# This file is distributed under the GPL v2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: ListenUp 1.0.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/listenup\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2025-09-18T18:55:02+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: listenup\n"
+
+#. Plugin Name of the plugin
+#. translators: Admin menu item
+#: listenup.php
+#: includes/class-admin.php:62
+msgid "ListenUp"
+msgstr ""
+
+#. Description of the plugin
+#: listenup.php
+msgid "Add \"read this to me\" functionality to your WordPress posts using Murf.ai text-to-speech technology."
+msgstr ""
+
+#. Author of the plugin
+#: listenup.php
+msgid "Adam Greenwell"
+msgstr ""
+
+#. Author URI of the plugin
+#: listenup.php
+msgid "https://adamgreenwell.com"
+msgstr ""
+
+#. translators: Admin page title
+#: includes/class-admin.php:60
+#: includes/class-admin.php:379
+msgid "ListenUp Settings"
+msgstr ""
+
+#. translators: Settings section title
+#: includes/class-admin.php:82
+msgid "API Configuration"
+msgstr ""
+
+#. translators: API key field label
+#: includes/class-admin.php:90
+msgid "Murf.ai API Key"
+msgstr ""
+
+#. translators: Settings section title
+#: includes/class-admin.php:99
+msgid "Display Settings"
+msgstr ""
+
+#. translators: Auto placement field label
+#: includes/class-admin.php:107
+msgid "Automatic Placement"
+msgstr ""
+
+#. translators: Player position field label
+#: includes/class-admin.php:116
+msgid "Player Position"
+msgstr ""
+
+#. translators: Settings section title
+#: includes/class-admin.php:125
+msgid "Debug Settings"
+msgstr ""
+
+#. translators: Debug logging field label
+#: includes/class-admin.php:133
+msgid "Enable Debug Logging"
+msgstr ""
+
+#. translators: Description for API configuration section
+#: includes/class-admin.php:173
+msgid "Configure your Murf.ai API settings below."
+msgstr ""
+
+#. translators: %s: Murf.ai website URL
+#: includes/class-admin.php:191
+#, php-format
+msgid "Enter your Murf.ai API key. You can get one from %s."
+msgstr ""
+
+#. translators: Description for display settings section
+#: includes/class-admin.php:202
+msgid "Configure how the audio player appears on your posts."
+msgstr ""
+
+#: includes/class-admin.php:213
+msgid "Manual placement only (use shortcode)"
+msgstr ""
+
+#: includes/class-admin.php:214
+msgid "Automatically add to posts"
+msgstr ""
+
+#: includes/class-admin.php:215
+msgid "Automatically add to pages"
+msgstr ""
+
+#: includes/class-admin.php:216
+msgid "Automatically add to both posts and pages"
+msgstr ""
+
+#. translators: Description for auto placement setting
+#: includes/class-admin.php:232
+msgid "Choose whether to automatically display the audio player on your content."
+msgstr ""
+
+#: includes/class-admin.php:244
+msgid "Before content"
+msgstr ""
+
+#: includes/class-admin.php:245
+msgid "After content"
+msgstr ""
+
+#. translators: Description for placement position setting
+#: includes/class-admin.php:261
+msgid "Choose where to place the audio player when using automatic placement."
+msgstr ""
+
+#. translators: Description for debug settings section
+#: includes/class-admin.php:270
+msgid "Debug settings for troubleshooting and development."
+msgstr ""
+
+#: includes/class-admin.php:285
+msgid "Enable debug logging"
+msgstr ""
+
+#. translators: Description for debug logging setting
+#: includes/class-admin.php:289
+msgid "When enabled, detailed debug information will be logged to help troubleshoot issues."
+msgstr ""
+
+#: includes/class-admin.php:306
+msgid "Debug Log Viewer"
+msgstr ""
+
+#: includes/class-admin.php:310
+msgid "Log Statistics:"
+msgstr ""
+
+#: includes/class-admin.php:312
+msgid "Log Size"
+msgstr ""
+
+#: includes/class-admin.php:313
+msgid "Total Lines"
+msgstr ""
+
+#: includes/class-admin.php:314
+msgid "Info Messages"
+msgstr ""
+
+#: includes/class-admin.php:315
+msgid "Warnings"
+msgstr ""
+
+#: includes/class-admin.php:316
+msgid "Errors"
+msgstr ""
+
+#: includes/class-admin.php:324
+msgid "Recent Log Entries (Last 50 lines):"
+msgstr ""
+
+#: includes/class-admin.php:330
+msgid "No debug log entries found."
+msgstr ""
+
+#: includes/class-admin.php:336
+msgid "Clear Debug Log"
+msgstr ""
+
+#: includes/class-admin.php:390
+msgid "How to Use ListenUp"
+msgstr ""
+
+#: includes/class-admin.php:392
+msgid "Get your API key from Murf.ai and enter it above."
+msgstr ""
+
+#: includes/class-admin.php:393
+msgid "Configure your display preferences."
+msgstr ""
+
+#: includes/class-admin.php:394
+msgid "Edit any post or page and use the \"ListenUp Audio Generation\" meta box to generate audio."
+msgstr ""
+
+#: includes/class-admin.php:395
+msgid "Use the [listenup] shortcode to manually place the player anywhere in your content."
+msgstr ""
+
+#: includes/class-admin.php:408
+#: includes/class-meta-box.php:130
+msgid "Insufficient permissions."
+msgstr ""
+
+#: includes/class-admin.php:413
+#: includes/class-meta-box.php:125
+msgid "Security check failed."
+msgstr ""
+
+#: includes/class-admin.php:421
+msgid "Debug log cleared successfully."
+msgstr ""
+
+#: includes/class-admin.php:425
+msgid "Failed to clear debug log."
+msgstr ""
+
+#. translators: Error message when API key is missing
+#: includes/class-api.php:64
+#: includes/class-api.php:191
+msgid "Murf.ai API key is not configured."
+msgstr ""
+
+#. translators: Error message when no text is provided
+#: includes/class-api.php:69
+msgid "No text provided for audio generation."
+msgstr ""
+
+#: includes/class-api.php:124
+msgid "Unknown API error occurred."
+msgstr ""
+
+#: includes/class-api.php:132
+msgid "Invalid response from Murf.ai API."
+msgstr ""
+
+#: includes/class-api.php:213
+msgid "API connection successful."
+msgstr ""
+
+#: includes/class-api.php:218
+msgid "API connection failed."
+msgstr ""
+
+#: includes/class-cache.php:139
+msgid "Failed to download audio file."
+msgstr ""
+
+#: includes/class-cache.php:144
+msgid "Downloaded audio file is empty."
+msgstr ""
+
+#: includes/class-cache.php:161
+msgid "Failed to write audio file to cache."
+msgstr ""
+
+#. translators: Audio player title
+#: includes/class-frontend.php:151
+msgid "Listen to this content"
+msgstr ""
+
+#. translators: Play button aria label
+#: includes/class-frontend.php:156
+msgid "Play audio"
+msgstr ""
+
+#. translators: Download button aria label
+#: includes/class-frontend.php:171
+msgid "Download audio"
+msgstr ""
+
+#. translators: Audio element aria label
+#: includes/class-frontend.php:179
+msgid "Audio player for post content"
+msgstr ""
+
+#. translators: Fallback text for unsupported browsers
+#: includes/class-frontend.php:182
+msgid "Your browser does not support the audio element."
+msgstr ""
+
+#. translators: Message when no audio is available for content
+#: includes/class-frontend.php:211
+msgid "No audio available for this content."
+msgstr ""
+
+#. translators: Meta box title
+#: includes/class-meta-box.php:63
+msgid "ListenUp Audio Generation"
+msgstr ""
+
+#. translators: Status message when audio exists
+#: includes/class-meta-box.php:89
+msgid "Audio Available"
+msgstr ""
+
+#. translators: Description when audio exists
+#: includes/class-meta-box.php:90
+msgid "Audio has been generated for this content."
+msgstr ""
+
+#. translators: Button to regenerate audio
+#: includes/class-meta-box.php:92
+msgid "Regenerate Audio"
+msgstr ""
+
+#. translators: Button to delete audio
+#: includes/class-meta-box.php:95
+msgid "Delete Audio"
+msgstr ""
+
+#. translators: Message when no audio exists
+#: includes/class-meta-box.php:100
+msgid "No audio has been generated for this content yet."
+msgstr ""
+
+#. translators: Button to generate audio
+#: includes/class-meta-box.php:102
+msgid "Generate Audio"
+msgstr ""
+
+#. translators: Loading message during audio generation
+#: includes/class-meta-box.php:110
+#: includes/class-meta-box.php:258
+msgid "Generating audio..."
+msgstr ""
+
+#: includes/class-meta-box.php:142
+msgid "Invalid post ID."
+msgstr ""
+
+#: includes/class-meta-box.php:148
+msgid "Post not found."
+msgstr ""
+
+#: includes/class-meta-box.php:164
+msgid "Invalid action."
+msgstr ""
+
+#: includes/class-meta-box.php:190
+#: includes/class-meta-box.php:259
+msgid "Audio generated successfully!"
+msgstr ""
+
+#: includes/class-meta-box.php:220
+#: includes/class-meta-box.php:262
+msgid "Audio deleted successfully."
+msgstr ""
+
+#: includes/class-meta-box.php:223
+msgid "Failed to delete audio."
+msgstr ""
+
+#: includes/class-meta-box.php:260
+msgid "Error generating audio. Please try again."
+msgstr ""
+
+#: includes/class-meta-box.php:261
+msgid "Deleting audio..."
+msgstr ""
+
+#: includes/class-shortcode.php:73
+msgid "No post specified for audio player."
+msgstr ""

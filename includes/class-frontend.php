@@ -1,0 +1,216 @@
+<?php
+/**
+ * Frontend functionality for ListenUp plugin.
+ *
+ * @package ListenUp
+ */
+
+// Prevent direct access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Frontend class for audio player display.
+ */
+class ListenUp_Frontend {
+
+	/**
+	 * Single instance of the class.
+	 *
+	 * @var ListenUp_Frontend
+	 */
+	private static $instance = null;
+
+	/**
+	 * Get single instance of the class.
+	 *
+	 * @return ListenUp_Frontend
+	 */
+	public static function get_instance() {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+		return self::$instance;
+	}
+
+	/**
+	 * Constructor.
+	 */
+	private function __construct() {
+		$this->init_hooks();
+	}
+
+	/**
+	 * Initialize WordPress hooks.
+	 */
+	private function init_hooks() {
+		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
+		add_filter( 'the_content', array( $this, 'maybe_add_audio_player' ) );
+	}
+
+	/**
+	 * Enqueue frontend scripts and styles.
+	 */
+	public function enqueue_scripts() {
+		// Load on all pages since shortcode can be used anywhere.
+		// The JavaScript will only initialize if audio players are present.
+
+		wp_enqueue_style(
+			'listenup-frontend',
+			LISTENUP_PLUGIN_URL . 'assets/css/frontend.css',
+			array(),
+			LISTENUP_VERSION
+		);
+
+		wp_enqueue_script(
+			'listenup-frontend',
+			LISTENUP_PLUGIN_URL . 'assets/js/frontend.js',
+			array( 'jquery' ),
+			LISTENUP_VERSION,
+			true
+		);
+	}
+
+	/**
+	 * Maybe add audio player to content.
+	 *
+	 * @param string $content Post content.
+	 * @return string Modified content.
+	 */
+	public function maybe_add_audio_player( $content ) {
+		// Only on single posts/pages.
+		if ( ! is_singular() ) {
+			return $content;
+		}
+
+		global $post;
+		if ( ! $post ) {
+			return $content;
+		}
+
+		// Check if auto-placement is enabled.
+		$options = get_option( 'listenup_options' );
+		$auto_placement = isset( $options['auto_placement'] ) ? $options['auto_placement'] : 'none';
+		$placement_position = isset( $options['placement_position'] ) ? $options['placement_position'] : 'after';
+
+		// Determine if we should show the player.
+		$should_show = false;
+		switch ( $auto_placement ) {
+			case 'posts':
+				$should_show = 'post' === $post->post_type;
+				break;
+			case 'pages':
+				$should_show = 'page' === $post->post_type;
+				break;
+			case 'both':
+				$should_show = in_array( $post->post_type, array( 'post', 'page' ), true );
+				break;
+		}
+
+		if ( ! $should_show ) {
+			return $content;
+		}
+
+		// Check if audio exists for this post.
+		$cache = ListenUp_Cache::get_instance();
+		$cached_audio = $cache->get_cached_audio( $post->ID );
+
+		if ( ! $cached_audio ) {
+			return $content;
+		}
+
+		// Generate audio player HTML.
+		$audio_player = $this->generate_audio_player( $cached_audio['url'], $post->ID );
+
+		// Add player to content based on position.
+		if ( 'before' === $placement_position ) {
+			$content = $audio_player . $content;
+		} else {
+			$content = $content . $audio_player;
+		}
+
+		return $content;
+	}
+
+	/**
+	 * Generate audio player HTML.
+	 *
+	 * @param string $audio_url URL of the audio file.
+	 * @param int    $post_id Post ID.
+	 * @return string Audio player HTML.
+	 */
+	public function generate_audio_player( $audio_url, $post_id = 0 ) {
+		$player_id = 'listenup-player-' . $post_id;
+		
+		ob_start();
+		?>
+		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>">
+			<div class="listenup-player-header">
+				<h3 class="listenup-player-title">
+					<?php /* translators: Audio player title */ esc_html_e( 'Listen to this content', 'listenup' ); ?>
+				</h3>
+			</div>
+			
+			<div class="listenup-player-controls">
+				<button type="button" class="listenup-play-button" aria-label="<?php /* translators: Play button aria label */ esc_attr_e( 'Play audio', 'listenup' ); ?>">
+					<span class="listenup-play-icon" aria-hidden="true">▶</span>
+					<span class="listenup-pause-icon" aria-hidden="true" style="display: none;">⏸</span>
+				</button>
+				
+				<div class="listenup-progress-container">
+					<div class="listenup-progress-bar">
+						<div class="listenup-progress-fill"></div>
+					</div>
+					<div class="listenup-time-display">
+						<span class="listenup-current-time">0:00</span>
+						<span class="listenup-duration">0:00</span>
+					</div>
+				</div>
+				
+				<button type="button" class="listenup-download-button" aria-label="<?php /* translators: Download button aria label */ esc_attr_e( 'Download audio', 'listenup' ); ?>">
+					<span class="listenup-download-icon" aria-hidden="true">⬇</span>
+				</button>
+			</div>
+			
+			<audio 
+				class="listenup-audio-element" 
+				preload="metadata"
+				aria-label="<?php /* translators: Audio element aria label */ esc_attr_e( 'Audio player for post content', 'listenup' ); ?>"
+			>
+				<source src="<?php echo esc_url( $audio_url ); ?>" type="audio/mpeg">
+				<?php /* translators: Fallback text for unsupported browsers */ esc_html_e( 'Your browser does not support the audio element.', 'listenup' ); ?>
+			</audio>
+		</div>
+		<?php
+		return ob_get_clean();
+	}
+
+	/**
+	 * Get audio player for shortcode.
+	 *
+	 * @param int $post_id Post ID (optional, defaults to current post).
+	 * @return string Audio player HTML or empty string.
+	 */
+	public function get_audio_player_for_shortcode( $post_id = 0 ) {
+		if ( ! $post_id ) {
+			global $post;
+			$post_id = $post ? $post->ID : 0;
+		}
+
+		if ( ! $post_id ) {
+			return '';
+		}
+
+		// Check if audio exists for this post.
+		$cache = ListenUp_Cache::get_instance();
+		$cached_audio = $cache->get_cached_audio( $post_id );
+
+		if ( ! $cached_audio ) {
+			/* translators: Message when no audio is available for content */
+			return '<p class="listenup-no-audio">' . esc_html__( 'No audio available for this content.', 'listenup' ) . '</p>';
+		}
+
+		return $this->generate_audio_player( $cached_audio['url'], $post_id );
+	}
+}

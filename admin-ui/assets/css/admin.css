@@ -1,0 +1,78 @@
+/**
+ * Admin styles for ListenUp plugin.
+ *
+ * @package ListenUp
+ */
+
+.listenup-admin-info {
+	background: #f0f6fc;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	padding: 20px;
+	margin-top: 20px;
+}
+
+.listenup-admin-info h2 {
+	margin-top: 0;
+	color: #1d2327;
+}
+
+.listenup-admin-info ol {
+	margin: 0;
+	padding-left: 20px;
+}
+
+.listenup-admin-info li {
+	margin-bottom: 8px;
+	color: #1d2327;
+}
+
+/* Settings page specific styles */
+.form-table th {
+	width: 200px;
+}
+
+.form-table td p.description {
+	margin-top: 5px;
+	font-style: italic;
+	color: #666;
+}
+
+/* API key field styling */
+#murf_api_key {
+	font-family: monospace;
+	letter-spacing: 1px;
+}
+
+/* Select field styling */
+select {
+	min-width: 200px;
+}
+
+/* Button styling */
+.button-primary {
+	background: #007cba;
+	border-color: #007cba;
+}
+
+.button-primary:hover {
+	background: #005a87;
+	border-color: #005a87;
+}
+
+/* Responsive design */
+@media (max-width: 782px) {
+	.form-table th,
+	.form-table td {
+		display: block;
+		width: 100%;
+	}
+	
+	.form-table th {
+		padding-bottom: 5px;
+	}
+	
+	.form-table td {
+		padding-top: 0;
+	}
+}

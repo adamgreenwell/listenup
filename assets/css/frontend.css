@@ -1,0 +1,199 @@
+/**
+ * Frontend styles for ListenUp plugin.
+ *
+ * @package ListenUp
+ */
+
+.listenup-audio-player {
+	background: #f8f9fa;
+	border: 1px solid #e9ecef;
+	border-radius: 8px;
+	padding: 20px;
+	margin: 20px 0;
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.listenup-player-header {
+	margin-bottom: 15px;
+}
+
+.listenup-player-title {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 600;
+	color: #333;
+}
+
+.listenup-player-controls {
+	display: flex;
+	align-items: center;
+	gap: 15px;
+}
+
+.listenup-play-button {
+	background: #007cba;
+	color: white;
+	border: none;
+	border-radius: 50%;
+	width: 50px;
+	height: 50px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 18px;
+	transition: background-color 0.2s ease;
+}
+
+.listenup-play-button:hover {
+	background: #005a87;
+}
+
+.listenup-play-button:focus {
+	outline: 2px solid #007cba;
+	outline-offset: 2px;
+}
+
+.listenup-play-button:disabled {
+	background: #ccc;
+	cursor: not-allowed;
+}
+
+.listenup-progress-container {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+}
+
+.listenup-progress-bar {
+	background: #e9ecef;
+	border-radius: 4px;
+	height: 8px;
+	position: relative;
+	cursor: pointer;
+}
+
+.listenup-progress-fill {
+	background: #007cba;
+	border-radius: 4px;
+	height: 100%;
+	width: 0%;
+	transition: width 0.1s ease;
+}
+
+.listenup-time-display {
+	display: flex;
+	justify-content: space-between;
+	font-size: 12px;
+	color: #666;
+}
+
+.listenup-download-button {
+	background: transparent;
+	border: 1px solid #007cba;
+	color: #007cba;
+	border-radius: 4px;
+	padding: 8px 12px;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 14px;
+	transition: all 0.2s ease;
+}
+
+.listenup-download-button:hover {
+	background: #007cba;
+	color: white;
+}
+
+.listenup-download-button:focus {
+	outline: 2px solid #007cba;
+	outline-offset: 2px;
+}
+
+.listenup-audio-element {
+	display: none;
+}
+
+.listenup-no-audio {
+	background: #fff3cd;
+	border: 1px solid #ffeaa7;
+	border-radius: 4px;
+	padding: 15px;
+	color: #856404;
+	text-align: center;
+}
+
+.listenup-error {
+	background: #f8d7da;
+	border: 1px solid #f5c6cb;
+	border-radius: 4px;
+	padding: 15px;
+	color: #721c24;
+	text-align: center;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+	.listenup-audio-player {
+		padding: 15px;
+		margin: 15px 0;
+	}
+	
+	.listenup-player-controls {
+		flex-direction: column;
+		gap: 10px;
+	}
+	
+	.listenup-progress-container {
+		width: 100%;
+	}
+	
+	.listenup-play-button {
+		width: 60px;
+		height: 60px;
+		font-size: 20px;
+	}
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+	.listenup-audio-player {
+		background: white;
+		border: 2px solid black;
+	}
+	
+	.listenup-play-button {
+		background: black;
+		border: 2px solid black;
+	}
+	
+	.listenup-play-button:hover {
+		background: #333;
+	}
+	
+	.listenup-progress-fill {
+		background: black;
+	}
+	
+	.listenup-download-button {
+		border: 2px solid black;
+		color: black;
+	}
+	
+	.listenup-download-button:hover {
+		background: black;
+		color: white;
+	}
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+	.listenup-play-button,
+	.listenup-download-button,
+	.listenup-progress-fill {
+		transition: none;
+	}
+}
