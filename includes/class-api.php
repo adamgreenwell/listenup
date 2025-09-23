@@ -53,9 +53,11 @@ class ListenUp_API {
 	 *
 	 * @param string $text Text to convert to speech.
 	 * @param int    $post_id Post ID for caching purposes.
+	 * @param string $voice_id Optional voice ID to override the default.
+	 * @param string $voice_style Optional voice style to override the default.
 	 * @return array|WP_Error Response data or error.
 	 */
-	public function generate_audio( $text, $post_id = 0 ) {
+	public function generate_audio( $text, $post_id = 0, $voice_id = null, $voice_style = null ) {
 		$options = get_option( 'listenup_options' );
 		$api_key = isset( $options['murf_api_key'] ) ? $options['murf_api_key'] : '';
 
@@ -74,7 +76,7 @@ class ListenUp_API {
 
 		// Check cache first.
 		$cache = ListenUp_Cache::get_instance();
-		$cached_audio = $cache->get_cached_audio( $post_id, $text );
+		$cached_audio = $cache->get_cached_audio( $post_id, $text, $voice_id, $voice_style );
 		if ( $cached_audio ) {
 			return array(
 				'success' => true,
@@ -83,10 +85,17 @@ class ListenUp_API {
 			);
 		}
 
+		// Get selected voice from options or use passed voice_id.
+		$selected_voice = $voice_id ? $voice_id : ( isset( $options['selected_voice'] ) ? $options['selected_voice'] : 'en-US-natalie' );
+		
+		// Get selected voice style from options or use passed voice_style.
+		$selected_voice_style = $voice_style ? $voice_style : ( isset( $options['selected_voice_style'] ) ? $options['selected_voice_style'] : 'Narration' );
+		
 		// Prepare API request according to Murf.ai documentation.
 		$request_data = array(
 			'text' => $text,
-			'voiceId' => 'en-US-natalie', // Default voice, can be made configurable later.
+			'voiceId' => $selected_voice,
+			'style' => $selected_voice_style,
 			'format' => 'MP3',
 			'modelVersion' => 'GEN2',
 		);
@@ -94,6 +103,8 @@ class ListenUp_API {
 		// Debug logging
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'API Request Data: ' . wp_json_encode( $request_data ) );
+		$debug->info( 'Using voice ID: ' . $selected_voice );
+		$debug->info( 'Using voice style: ' . $selected_voice_style );
 
 		$args = array(
 			'method' => 'POST',
@@ -134,7 +145,7 @@ class ListenUp_API {
 		}
 
 		// Cache the audio file.
-		$cache_result = $cache->cache_audio_file( $response_data['audioFile'], $post_id, $text );
+		$cache_result = $cache->cache_audio_file( $response_data['audioFile'], $post_id, $text, $voice_id, $voice_style );
 		
 		if ( is_wp_error( $cache_result ) ) {
 			// Log the caching error but don't fail the request.
@@ -219,5 +230,54 @@ class ListenUp_API {
 			$error_message = isset( $error_data['message'] ) ? $error_data['message'] : __( 'API connection failed.', 'listenup' );
 			return new WP_Error( 'api_error', $error_message );
 		}
+	}
+
+	/**
+	 * Get available voices from Murf.ai API.
+	 *
+	 * @return array|WP_Error Array of voices or error.
+	 */
+	public function get_available_voices() {
+		$options = get_option( 'listenup_options' );
+		$api_key = isset( $options['murf_api_key'] ) ? $options['murf_api_key'] : '';
+
+		if ( empty( $api_key ) ) {
+			return new WP_Error( 'no_api_key', __( 'Murf.ai API key is not configured.', 'listenup' ) );
+		}
+
+		$args = array(
+			'method' => 'GET',
+			'timeout' => 30,
+			'headers' => array(
+				'api-key' => $api_key,
+			),
+		);
+
+		$response = wp_remote_get( $this->api_base_url . '/speech/voices', $args );
+
+		if ( is_wp_error( $response ) ) {
+			return new WP_Error( 'connection_failed', $response->get_error_message() );
+		}
+
+		$response_code = wp_remote_retrieve_response_code( $response );
+		$response_body = wp_remote_retrieve_body( $response );
+
+		if ( 200 !== $response_code ) {
+			$error_data = json_decode( $response_body, true );
+			$error_message = isset( $error_data['message'] ) ? $error_data['message'] : __( 'Failed to fetch voices from API.', 'listenup' );
+			return new WP_Error( 'api_error', $error_message );
+		}
+
+		$voices_data = json_decode( $response_body, true );
+
+		if ( ! is_array( $voices_data ) ) {
+			return new WP_Error( 'invalid_response', __( 'Invalid response format from voices API.', 'listenup' ) );
+		}
+
+		// Debug logging
+		$debug = ListenUp_Debug::get_instance();
+		$debug->info( 'Retrieved ' . count( $voices_data ) . ' voices from API' );
+
+		return $voices_data;
 	}
 }

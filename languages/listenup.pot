@@ -290,7 +290,7 @@ msgstr ""
 
 #. translators: Meta box title
 #: includes/class-meta-box.php:63
-msgid "ListenUp Audio Generation"
+msgid "ListenUp"
 msgstr ""
 
 #. translators: Status message when audio exists
