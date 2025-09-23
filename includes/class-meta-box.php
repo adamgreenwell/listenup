@@ -183,7 +183,10 @@ class ListenUp_Meta_Box {
 		$result = $api->generate_audio( $content, $post->ID );
 
 		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( $result->get_error_message() );
+			wp_send_json_success( array(
+				'success' => false,
+				'message' => $result->get_error_message(),
+			) );
 		}
 
 		wp_send_json_success( array(
@@ -220,7 +223,10 @@ class ListenUp_Meta_Box {
 				'message' => __( 'Audio deleted successfully.', 'listenup' ),
 			) );
 		} else {
-			wp_send_json_error( __( 'Failed to delete audio.', 'listenup' ) );
+			wp_send_json_success( array(
+				'success' => false,
+				'message' => __( 'Failed to delete audio.', 'listenup' ),
+			) );
 		}
 	}
 
