@@ -95,6 +95,16 @@ class ListenUp_Admin {
 			'listenup_api_section'
 		);
 
+		add_settings_field(
+			'selected_voice',
+			/* translators: Voice selection field label */
+			__( 'Voice Selection', 'listenup' ),
+			array( $this, 'voice_selection_field_callback' ),
+			'listenup-settings',
+			'listenup_api_section'
+		);
+
+
 		add_settings_section(
 			'listenup_display_section',
 			/* translators: Settings section title */
