@@ -18,6 +18,7 @@ $log_contents = $log_contents ?? '';
 
 <div class="listenup-debug-viewer" style="margin-top: 20px; padding: 15px; background: #f9f9f9; border: 1px solid #ddd; border-radius: 4px;">
 	<h4><?php esc_html_e( 'Debug Log Viewer', 'listenup' ); ?></h4>
+	<p class="description"><?php esc_html_e( 'ListenUp debug entries are written to the standard WordPress debug.log file with [ListenUp] prefix for easy identification.', 'listenup' ); ?></p>
 	
 	<!-- Debug stats -->
 	<div class="listenup-debug-stats" style="margin-bottom: 15px;">
@@ -44,7 +45,7 @@ $log_contents = $log_contents ?? '';
 	<!-- Clear log button -->
 	<div class="listenup-debug-actions" style="margin-top: 15px;">
 		<button type="button" id="clear-debug-log" class="button button-secondary">
-			<?php esc_html_e( 'Clear Debug Log', 'listenup' ); ?>
+			<?php esc_html_e( 'Clear ListenUp Debug Entries', 'listenup' ); ?>
 		</button>
 	</div>
 </div>
