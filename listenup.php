@@ -122,6 +122,8 @@ class ListenUp {
 		// Set default options.
 		$default_options = array(
 			'murf_api_key' => '',
+			'selected_voice' => 'en-US-natalie',
+			'selected_voice_style' => 'Narration',
 			'auto_placement' => 'none',
 			'placement_position' => 'after',
 		);
