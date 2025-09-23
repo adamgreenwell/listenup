@@ -60,7 +60,7 @@ class ListenUp_Meta_Box {
 			add_meta_box(
 				'listenup-audio-generation',
 				/* translators: Meta box title */
-				__( 'ListenUp Audio Generation', 'listenup' ),
+				__( 'ListenUp', 'listenup' ),
 				array( $this, 'meta_box_callback' ),
 				$post_type,
 				'side',
