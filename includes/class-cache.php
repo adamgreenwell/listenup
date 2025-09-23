@@ -54,9 +54,11 @@ class ListenUp_Cache {
 	 *
 	 * @param int    $post_id Post ID.
 	 * @param string $text_hash Text hash for verification.
+	 * @param string $voice_id Voice ID.
+	 * @param string $voice_style Voice style.
 	 * @return array|false Cached audio data or false if not found.
 	 */
-	public function get_cached_audio( $post_id, $text_hash = '' ) {
+	public function get_cached_audio( $post_id, $text_hash = '', $voice_id = '', $voice_style = '' ) {
 		// Debug logging
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Checking for cached audio for post ID: ' . $post_id );
@@ -88,7 +90,7 @@ class ListenUp_Cache {
 		}
 
 		// Fallback to old cache system for backward compatibility.
-		$cache_key = $this->get_cache_key( $post_id, $text_hash );
+		$cache_key = $this->get_cache_key( $post_id, $text_hash, $voice_id, $voice_style );
 		$cache_file = $this->cache_dir . '/' . $cache_key . '.json';
 
 		if ( ! file_exists( $cache_file ) ) {
@@ -125,9 +127,11 @@ class ListenUp_Cache {
 	 * @param string $audio_url URL of the audio file to cache.
 	 * @param int    $post_id Post ID.
 	 * @param string $text_hash Text hash for verification.
+	 * @param string $voice_id Voice ID.
+	 * @param string $voice_style Voice style.
 	 * @return array|WP_Error Cached audio data or error.
 	 */
-	public function cache_audio_file( $audio_url, $post_id, $text_hash = '' ) {
+	public function cache_audio_file( $audio_url, $post_id, $text_hash = '', $voice_id = '', $voice_style = '' ) {
 		// Download the audio file.
 		$response = wp_remote_get( $audio_url, array( 'timeout' => 60 ) );
 
@@ -147,7 +151,7 @@ class ListenUp_Cache {
 
 		// Generate unique filename.
 		$file_extension = $this->get_file_extension( $audio_url );
-		$cache_key = $this->get_cache_key( $post_id, $text_hash );
+		$cache_key = $this->get_cache_key( $post_id, $text_hash, $voice_id, $voice_style );
 		$filename = $cache_key . '.' . $file_extension;
 		$file_path = $this->cache_dir . '/' . $filename;
 
@@ -294,15 +298,21 @@ class ListenUp_Cache {
 	 *
 	 * @param int    $post_id Post ID.
 	 * @param string $text_hash Text hash.
+	 * @param string $voice_id Voice ID.
+	 * @param string $voice_style Voice style.
 	 * @return string Cache key.
 	 */
-	private function get_cache_key( $post_id, $text_hash = '' ) {
+	private function get_cache_key( $post_id, $text_hash = '', $voice_id = '', $voice_style = '' ) {
 		if ( ! empty( $text_hash ) ) {
 			// Use the same hash approach as post meta for consistency.
 			$text_hash_short = substr( md5( $text_hash ), 0, 8 );
-			return $post_id . '_' . $text_hash_short;
+			$voice_hash = ! empty( $voice_id ) ? '_' . substr( md5( $voice_id ), 0, 4 ) : '';
+			$style_hash = ! empty( $voice_style ) ? '_' . substr( md5( $voice_style ), 0, 4 ) : '';
+			return $post_id . '_' . $text_hash_short . $voice_hash . $style_hash;
 		}
-		return $post_id . '_default';
+		$voice_hash = ! empty( $voice_id ) ? '_' . substr( md5( $voice_id ), 0, 4 ) : '';
+		$style_hash = ! empty( $voice_style ) ? '_' . substr( md5( $voice_style ), 0, 4 ) : '';
+		return $post_id . '_default' . $voice_hash . $style_hash;
 	}
 
 	/**
