@@ -4,7 +4,7 @@ Tags: audio, text-to-speech, accessibility, tts
 Requires at least: 5.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -78,6 +78,9 @@ The plugin generates MP3 audio files, which are compatible with all modern brows
 Yes, the plugin includes CSS classes that you can customize in your theme's stylesheet.
 
 == Changelog ==
+
+= 1.1.1 =
+* Improved debug logging
 
 = 1.1.0 =
 * Users can select a default voice and style
