@@ -49,6 +49,8 @@ class ListenUp_Admin {
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_scripts' ) );
 		add_action( 'wp_ajax_listenup_clear_debug_log', array( $this, 'ajax_clear_debug_log' ) );
+		add_action( 'wp_ajax_listenup_get_voices', array( $this, 'ajax_get_voices' ) );
+		add_action( 'wp_ajax_listenup_preview_voice', array( $this, 'ajax_preview_voice' ) );
 	}
 
 	/**
