@@ -530,7 +530,8 @@ class ListenUp_Admin {
 		$voices = $api->get_available_voices();
 
 		if ( is_wp_error( $voices ) ) {
-			wp_send_json_error( array(
+			wp_send_json_success( array(
+				'success' => false,
 				'message' => $voices->get_error_message()
 			) );
 		}
@@ -560,7 +561,8 @@ class ListenUp_Admin {
 		$preview_text = sanitize_text_field( wp_unslash( $_POST['preview_text'] ?? 'Hello, this is a preview of this voice.' ) );
 
 		if ( empty( $voice_id ) ) {
-			wp_send_json_error( array(
+			wp_send_json_success( array(
+				'success' => false,
 				'message' => __( 'Voice ID is required.', 'listenup' )
 			) );
 		}
@@ -570,7 +572,8 @@ class ListenUp_Admin {
 		$result = $api->generate_audio( $preview_text, 0, $voice_id, $voice_style );
 
 		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( array(
+			wp_send_json_success( array(
+				'success' => false,
 				'message' => $result->get_error_message()
 			) );
 		}
@@ -624,6 +627,23 @@ class ListenUp_Admin {
 		}
 
 		$debug = ListenUp_Debug::get_instance();
+		$log_file = $debug->get_log_file_path();
+		
+		// Check if log file exists
+		if ( ! file_exists( $log_file ) ) {
+			wp_send_json_success( array(
+				'message' => __( 'Debug log is already empty.', 'listenup' ),
+			) );
+		}
+		
+		// Check if log file is writable
+		if ( ! is_writable( $log_file ) ) {
+			wp_send_json_success( array(
+				'success' => false,
+				'message' => __( 'Debug log file is not writable. Please check file permissions.', 'listenup' ),
+			) );
+		}
+		
 		$result = $debug->clear_log();
 
 		if ( $result ) {
@@ -631,8 +651,9 @@ class ListenUp_Admin {
 				'message' => __( 'Debug log cleared successfully.', 'listenup' ),
 			) );
 		} else {
-			wp_send_json_error( array(
-				'message' => __( 'Failed to clear debug log.', 'listenup' ),
+			wp_send_json_success( array(
+				'success' => false,
+				'message' => __( 'Failed to clear debug log. Please check file permissions.', 'listenup' ),
 			) );
 		}
 	}
