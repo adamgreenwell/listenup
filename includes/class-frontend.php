@@ -154,8 +154,8 @@ class ListenUp_Frontend {
 			
 			<div class="listenup-player-controls">
 				<button type="button" class="listenup-play-button" aria-label="<?php /* translators: Play button aria label */ esc_attr_e( 'Play audio', 'listenup' ); ?>">
-					<span class="listenup-play-icon" aria-hidden="true">Play</span>
-					<span class="listenup-pause-icon" aria-hidden="true" style="display: none;">Pause</span>
+					<span class="listenup-play-icon" aria-hidden="true">▶</span>
+					<span class="listenup-pause-icon" aria-hidden="true" style="display: none;">⏸</span>
 				</button>
 				
 				<div class="listenup-progress-container">
