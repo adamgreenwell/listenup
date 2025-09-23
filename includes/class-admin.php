@@ -162,6 +162,14 @@ class ListenUp_Admin {
 			$sanitized['murf_api_key'] = sanitize_text_field( $input['murf_api_key'] );
 		}
 
+		if ( isset( $input['selected_voice'] ) ) {
+			$sanitized['selected_voice'] = sanitize_text_field( $input['selected_voice'] );
+		}
+
+		if ( isset( $input['selected_voice_style'] ) ) {
+			$sanitized['selected_voice_style'] = sanitize_text_field( $input['selected_voice_style'] );
+		}
+
 		if ( isset( $input['auto_placement'] ) ) {
 			$sanitized['auto_placement'] = sanitize_text_field( $input['auto_placement'] );
 		}
