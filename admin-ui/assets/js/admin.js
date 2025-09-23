@@ -80,7 +80,7 @@
             $(document).on('click', '#clear-debug-log', function(e) {
                 e.preventDefault();
                 
-                if (!confirm('Are you sure you want to clear the debug log?')) {
+                if (!confirm('Are you sure you want to clear all ListenUp debug entries from the debug log?')) {
                     return;
                 }
                 
@@ -94,18 +94,19 @@
                     type: 'POST',
                     data: {
                         action: 'listenup_clear_debug_log',
-                        nonce: listenupAdmin.nonce
+                        nonce: listenupAdmin.clearDebugNonce
                     },
                     success: function(response) {
-                        if (response.success) {
-                            alert('Debug log cleared successfully!');
+                        if (response.success && response.data.success !== false) {
+                            alert('ListenUp debug entries cleared successfully!');
                             location.reload(); // Reload to refresh the log viewer
                         } else {
-                            alert('Failed to clear debug log: ' + (response.data.message || 'Unknown error'));
+                            const errorMessage = response.data?.message || 'Unknown error';
+                            alert('Failed to clear ListenUp debug entries: ' + errorMessage);
                         }
                     },
                     error: function() {
-                        alert('Network error occurred while clearing debug log.');
+                        alert('Network error occurred while clearing ListenUp debug entries.');
                     },
                     complete: function() {
                         button.prop('disabled', false).text(originalText);
@@ -285,7 +286,7 @@
                     nonce: listenupAdmin.nonce
                 },
                 success: (response) => {
-                    if (response.success) {
+                    if (response.success && response.data.success !== false) {
                         // Create and play audio
                         const audio = new Audio(response.data.audio_url);
                         audio.play();
@@ -296,7 +297,8 @@
                             $btn.find('.preview-icon').text('Play');
                         }, 2000);
                     } else {
-                        this.showMessage('Preview failed: ' + (response.data.message || 'Unknown error'), 'error');
+                        const errorMessage = response.data?.message || 'Unknown error';
+                        this.showMessage('Preview failed: ' + errorMessage, 'error');
                         $btn.find('.preview-icon').text('Play');
                     }
                 },
