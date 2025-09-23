@@ -30,13 +30,6 @@ class ListenUp_Debug {
 	private $log_file;
 
 	/**
-	 * Maximum log file size in bytes (1MB).
-	 *
-	 * @var int
-	 */
-	private $max_log_size = 1048576;
-
-	/**
 	 * Get single instance of the class.
 	 *
 	 * @return ListenUp_Debug
@@ -52,8 +45,8 @@ class ListenUp_Debug {
 	 * Constructor.
 	 */
 	private function __construct() {
-		$upload_dir = wp_upload_dir();
-		$this->log_file = $upload_dir['basedir'] . '/listenup-debug.log';
+		// Use WordPress standard debug.log file
+		$this->log_file = WP_CONTENT_DIR . '/debug.log';
 	}
 
 	/**
@@ -80,15 +73,10 @@ class ListenUp_Debug {
 
 		$timestamp = current_time( 'Y-m-d H:i:s' );
 		$context_str = ! empty( $context ) ? ' | Context: ' . wp_json_encode( $context ) : '';
-		$log_entry = "[{$timestamp}] [{$level}] {$message}{$context_str}" . PHP_EOL;
+		$log_entry = "[ListenUp] [{$timestamp}] [{$level}] {$message}{$context_str}";
 
-		// Check if log file needs rotation.
-		if ( file_exists( $this->log_file ) && filesize( $this->log_file ) > $this->max_log_size ) {
-			$this->rotate_log();
-		}
-
-		// Write to log file.
-		file_put_contents( $this->log_file, $log_entry, FILE_APPEND | LOCK_EX );
+		// Use WordPress error_log function to write to debug.log
+		error_log( $log_entry );
 	}
 
 	/**
@@ -197,14 +185,22 @@ class ListenUp_Debug {
 			return '';
 		}
 
-		if ( $lines > 0 ) {
-			$log_contents = file_get_contents( $this->log_file );
-			$log_lines = explode( PHP_EOL, $log_contents );
-			$log_lines = array_slice( $log_lines, -$lines );
-			return implode( PHP_EOL, $log_lines );
+		$log_contents = file_get_contents( $this->log_file );
+		$all_lines = explode( PHP_EOL, $log_contents );
+		
+		// Filter for ListenUp entries only
+		$listenup_lines = array_filter( $all_lines, function( $line ) {
+			return strpos( $line, '[ListenUp]' ) !== false;
+		});
+		
+		// Re-index the array
+		$listenup_lines = array_values( $listenup_lines );
+		
+		if ( $lines > 0 && count( $listenup_lines ) > $lines ) {
+			$listenup_lines = array_slice( $listenup_lines, -$lines );
 		}
 
-		return file_get_contents( $this->log_file );
+		return implode( PHP_EOL, $listenup_lines );
 	}
 
 	/**
@@ -213,10 +209,24 @@ class ListenUp_Debug {
 	 * @return bool Success status.
 	 */
 	public function clear_log() {
-		if ( file_exists( $this->log_file ) ) {
-			return wp_delete_file( $this->log_file );
+		if ( ! file_exists( $this->log_file ) ) {
+			return true;
 		}
-		return true;
+
+		$log_contents = file_get_contents( $this->log_file );
+		$all_lines = explode( PHP_EOL, $log_contents );
+		
+		// Filter out ListenUp entries
+		$filtered_lines = array_filter( $all_lines, function( $line ) {
+			return strpos( $line, '[ListenUp]' ) === false;
+		});
+		
+		// Re-index the array
+		$filtered_lines = array_values( $filtered_lines );
+		
+		// Write back the filtered content
+		$new_content = implode( PHP_EOL, $filtered_lines );
+		return file_put_contents( $this->log_file, $new_content, LOCK_EX ) !== false;
 	}
 
 	/**
@@ -225,10 +235,8 @@ class ListenUp_Debug {
 	 * @return int Log file size in bytes.
 	 */
 	public function get_log_size() {
-		if ( file_exists( $this->log_file ) ) {
-			return filesize( $this->log_file );
-		}
-		return 0;
+		$log_contents = $this->get_log_contents();
+		return strlen( $log_contents );
 	}
 
 	/**
@@ -241,28 +249,14 @@ class ListenUp_Debug {
 	}
 
 	/**
-	 * Rotate log file.
+	 * Get log file path.
+	 *
+	 * @return string Log file path.
 	 */
-	private function rotate_log() {
-		if ( file_exists( $this->log_file ) ) {
-			$backup_file = $this->log_file . '.backup';
-			if ( file_exists( $backup_file ) ) {
-				wp_delete_file( $backup_file );
-			}
-			// Use WP_Filesystem for file operations.
-			if ( ! function_exists( 'WP_Filesystem' ) ) {
-				require_once ABSPATH . 'wp-admin/includes/file.php';
-			}
-			WP_Filesystem();
-			global $wp_filesystem;
-			if ( $wp_filesystem ) {
-				$wp_filesystem->move( $this->log_file, $backup_file );
-			} else {
-				// Fallback to rename if WP_Filesystem is not available.
-				rename( $this->log_file, $backup_file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
-			}
-		}
+	public function get_log_file_path() {
+		return $this->log_file;
 	}
+
 
 	/**
 	 * Get debug statistics.

@@ -90,7 +90,7 @@
             const $messages = $('#listenup-messages');
             const $metaBox = $('#listenup-meta-box');
             
-            if (response.success) {
+            if (response.success && response.data.success !== false) {
                 // Show success message
                 this.showMessage('success', response.data.message);
                 
@@ -104,7 +104,8 @@
                     this.updateMetaBoxForNoAudio();
                 }
             } else {
-                this.showMessage('error', response.data || 'An error occurred.');
+                const errorMessage = response.data?.message || response.data || 'An error occurred.';
+                this.showMessage('error', errorMessage);
             }
         }
         
