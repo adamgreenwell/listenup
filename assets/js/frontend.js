@@ -30,15 +30,84 @@
             
             this.isPlaying = false;
             this.isDragging = false;
+            this.audioChunks = this.container.data('audio-chunks');
+            this.concatenatedBlobUrl = null;
+            this.concatenator = new ListenUpAudioConcatenator();
             
             this.init();
         }
         
-        init() {
+        async init() {
             this.bindEvents();
             this.setupDownload();
+            
+            // Handle chunked audio if present
+            if (this.audioChunks && this.audioChunks.length > 1) {
+                this.disableDownloadButton();
+                await this.handleChunkedAudio();
+                this.enableDownloadButton();
+            }
         }
         
+        /**
+         * Handle chunked audio concatenation
+         */
+        async handleChunkedAudio() {
+            console.log('ListenUp: Handling chunked audio with', this.audioChunks.length, 'chunks');
+            
+            try {
+                // Show loading state
+                this.showLoadingState();
+                
+                // Concatenate audio chunks
+                const result = await this.concatenator.concatenateAudioChunks(this.audioChunks);
+                
+                if (result.success) {
+                    // Update audio source to use concatenated audio
+                    this.concatenatedBlobUrl = result.blobUrl;
+                    this.audio.src = result.blobUrl;
+                    
+                    console.log('ListenUp: Chunked audio concatenated successfully, duration:', result.duration);
+                    
+                    // Hide loading state
+                    this.hideLoadingState();
+                } else {
+                    throw new Error('Audio concatenation failed');
+                }
+                
+            } catch (error) {
+                console.error('ListenUp: Error handling chunked audio:', error);
+                this.hideLoadingState();
+                this.showErrorState('Failed to process audio. Please try again.');
+            }
+        }
+
+        /**
+         * Show loading state
+         */
+        showLoadingState() {
+            this.playButton.prop('disabled', true);
+            this.playButton.addClass('loading');
+            this.container.find('.listenup-player-title').text('Processing audio...');
+        }
+
+        /**
+         * Hide loading state
+         */
+        hideLoadingState() {
+            this.playButton.prop('disabled', false);
+            this.playButton.removeClass('loading');
+            this.container.find('.listenup-player-title').text('Listen to this content');
+        }
+
+        /**
+         * Show error state
+         */
+        showErrorState(message) {
+            this.container.find('.listenup-player-title').text(message);
+            this.playButton.prop('disabled', true);
+        }
+
         bindEvents() {
             // Play/pause button
             this.playButton.on('click', () => this.togglePlayPause());
@@ -187,14 +256,62 @@
         
         setupDownload() {
             this.downloadButton.on('click', () => {
-                const audioSrc = this.audio.querySelector('source').src;
-                const link = document.createElement('a');
-                link.href = audioSrc;
-                link.download = 'audio-' + Date.now() + '.mp3';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                this.handleDownload();
             });
+        }
+        
+        /**
+         * Handle download for both single and chunked audio
+         */
+        handleDownload() {
+            let downloadUrl;
+            let filename;
+            
+            if (this.concatenatedBlobUrl) {
+                // Use concatenated audio for chunked content
+                downloadUrl = this.concatenatedBlobUrl;
+                filename = 'audio-concatenated-' + Date.now() + '.wav';
+                console.log('ListenUp: Downloading concatenated audio');
+            } else {
+                // Use original audio source for single file
+                downloadUrl = this.audio.querySelector('source').src;
+                filename = 'audio-' + Date.now() + '.mp3';
+                console.log('ListenUp: Downloading single audio file');
+            }
+            
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        /**
+         * Disable download button (for chunked audio processing)
+         */
+        disableDownloadButton() {
+            this.downloadButton.prop('disabled', true);
+            this.downloadButton.addClass('listenup-download-disabled');
+            this.downloadButton.attr('title', 'Processing audio...');
+        }
+        
+        /**
+         * Enable download button (after chunked audio is ready)
+         */
+        enableDownloadButton() {
+            this.downloadButton.prop('disabled', false);
+            this.downloadButton.removeClass('listenup-download-disabled');
+            this.downloadButton.attr('title', 'Download audio');
+        }
+
+        /**
+         * Cleanup method to prevent memory leaks
+         */
+        cleanup() {
+            if (this.concatenatedBlobUrl) {
+                this.concatenator.cleanupBlobUrl(this.concatenatedBlobUrl);
+            }
         }
     }
     
