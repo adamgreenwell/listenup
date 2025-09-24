@@ -64,9 +64,17 @@ class ListenUp_Frontend {
 		);
 
 		wp_enqueue_script(
+			'listenup-audio-concatenator',
+			LISTENUP_PLUGIN_URL . 'assets/js/audio-concatenator.js',
+			array(),
+			LISTENUP_VERSION,
+			true
+		);
+
+		wp_enqueue_script(
 			'listenup-frontend',
 			LISTENUP_PLUGIN_URL . 'assets/js/frontend.js',
-			array( 'jquery' ),
+			array( 'jquery', 'listenup-audio-concatenator' ),
 			LISTENUP_VERSION,
 			true
 		);
@@ -121,7 +129,7 @@ class ListenUp_Frontend {
 		}
 
 		// Generate audio player HTML.
-		$audio_player = $this->generate_audio_player( $cached_audio['url'], $post->ID );
+		$audio_player = $this->generate_audio_player( $cached_audio, $post->ID );
 
 		// Add player to content based on position.
 		if ( 'before' === $placement_position ) {
@@ -136,16 +144,32 @@ class ListenUp_Frontend {
 	/**
 	 * Generate audio player HTML.
 	 *
-	 * @param string $audio_url URL of the audio file.
-	 * @param int    $post_id Post ID.
+	 * @param string|array $audio_data Audio URL or array with audio data.
+	 * @param int          $post_id Post ID.
 	 * @return string Audio player HTML.
 	 */
-	public function generate_audio_player( $audio_url, $post_id = 0 ) {
+	public function generate_audio_player( $audio_data, $post_id = 0 ) {
 		$player_id = 'listenup-player-' . $post_id;
+		
+		// Handle both single URL and chunked audio data
+		$audio_url = '';
+		$audio_chunks = null;
+		
+		if ( is_array( $audio_data ) ) {
+			if ( isset( $audio_data['chunks'] ) ) {
+				$audio_chunks = $audio_data['chunks'];
+				$audio_url = $audio_data['chunks'][0]; // Fallback URL
+			} else {
+				$audio_url = $audio_data[0]; // First chunk as fallback
+				$audio_chunks = $audio_data;
+			}
+		} else {
+			$audio_url = $audio_data;
+		}
 		
 		ob_start();
 		?>
-		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>">
+		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>" <?php echo $audio_chunks ? 'data-audio-chunks="' . esc_attr( wp_json_encode( $audio_chunks ) ) . '"' : ''; ?>>
 			<div class="listenup-player-header">
 				<h3 class="listenup-player-title">
 					<?php /* translators: Audio player title */ esc_html_e( 'Listen to this content', 'listenup' ); ?>
@@ -211,6 +235,6 @@ class ListenUp_Frontend {
 			return '<p class="listenup-no-audio">' . esc_html__( 'No audio available for this content.', 'listenup' ) . '</p>';
 		}
 
-		return $this->generate_audio_player( $cached_audio['url'], $post_id );
+		return $this->generate_audio_player( $cached_audio, $post_id );
 	}
 }
