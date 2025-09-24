@@ -63,7 +63,39 @@ class ListenUp_Cache {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Checking for cached audio for post ID: ' . $post_id );
 		
-		// First check post meta for audio association.
+		// First check for chunked audio.
+		$chunked_audio_meta = get_post_meta( $post_id, '_listenup_chunked_audio', true );
+		if ( ! empty( $chunked_audio_meta ) && isset( $chunked_audio_meta['chunks'] ) ) {
+			$debug->info( 'Found chunked audio metadata with ' . count( $chunked_audio_meta['chunks'] ) . ' chunks' );
+			
+			// Verify all chunk files still exist.
+			$valid_chunks = array();
+			foreach ( $chunked_audio_meta['chunks'] as $chunk_url ) {
+				$chunk_filename = basename( wp_parse_url( $chunk_url, PHP_URL_PATH ) );
+				$chunk_file = $this->cache_dir . '/' . $chunk_filename;
+				
+				if ( file_exists( $chunk_file ) ) {
+					$valid_chunks[] = $chunk_url;
+				} else {
+					$debug->warning( 'Chunk file not found: ' . $chunk_file );
+				}
+			}
+			
+			if ( count( $valid_chunks ) === count( $chunked_audio_meta['chunks'] ) ) {
+				$debug->info( 'All chunk files exist, returning chunked audio data' );
+				return array(
+					'url' => $valid_chunks[0], // First chunk as fallback
+					'chunks' => $valid_chunks,
+					'chunked' => true,
+					'created' => $chunked_audio_meta['created'],
+				);
+			} else {
+				$debug->warning( 'Some chunk files missing, cleaning up chunked audio metadata' );
+				delete_post_meta( $post_id, '_listenup_chunked_audio' );
+			}
+		}
+		
+		// Check for single audio file in post meta.
 		$audio_meta = get_post_meta( $post_id, '_listenup_audio', true );
 		$debug->info( 'Post meta result: ' . ( $audio_meta ? wp_json_encode( $audio_meta ) : 'empty' ) );
 		
@@ -220,6 +252,19 @@ class ListenUp_Cache {
 	public function clear_post_cache( $post_id ) {
 		// Clear post meta first.
 		delete_post_meta( $post_id, '_listenup_audio' );
+		delete_post_meta( $post_id, '_listenup_chunked_audio' );
+
+		// Clear chunked audio files.
+		$chunked_audio_meta = get_post_meta( $post_id, '_listenup_chunked_audio', true );
+		if ( ! empty( $chunked_audio_meta ) && isset( $chunked_audio_meta['chunks'] ) ) {
+			foreach ( $chunked_audio_meta['chunks'] as $chunk_url ) {
+				$chunk_filename = basename( wp_parse_url( $chunk_url, PHP_URL_PATH ) );
+				$chunk_file = $this->cache_dir . '/' . $chunk_filename;
+				if ( file_exists( $chunk_file ) ) {
+					wp_delete_file( $chunk_file );
+				}
+			}
+		}
 
 		// Clear file-based cache.
 		$pattern = $this->cache_dir . '/' . $post_id . '_*.json';
