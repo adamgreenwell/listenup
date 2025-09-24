@@ -132,6 +132,23 @@ class ListenUp_Admin {
 		);
 
 		add_settings_section(
+			'listenup_preroll_section',
+			/* translators: Settings section title */
+			__( 'Pre-roll Audio Settings', 'listenup' ),
+			array( $this, 'preroll_section_callback' ),
+			'listenup-settings'
+		);
+
+		add_settings_field(
+			'pre_roll_audio',
+			/* translators: Pre-roll audio field label */
+			__( 'Pre-roll Audio File', 'listenup' ),
+			array( $this, 'preroll_audio_field_callback' ),
+			'listenup-settings',
+			'listenup_preroll_section'
+		);
+
+		add_settings_section(
 			'listenup_debug_section',
 			/* translators: Settings section title */
 			__( 'Debug Settings', 'listenup' ),
@@ -176,6 +193,10 @@ class ListenUp_Admin {
 
 		if ( isset( $input['placement_position'] ) ) {
 			$sanitized['placement_position'] = sanitize_text_field( $input['placement_position'] );
+		}
+
+		if ( isset( $input['pre_roll_audio'] ) ) {
+			$sanitized['pre_roll_audio'] = sanitize_text_field( $input['pre_roll_audio'] );
 		}
 
 		if ( isset( $input['debug_enabled'] ) ) {
@@ -656,5 +677,43 @@ class ListenUp_Admin {
 				'message' => __( 'Failed to clear debug log. Please check file permissions.', 'listenup' ),
 			) );
 		}
+	}
+
+	/**
+	 * Pre-roll section callback.
+	 */
+	public function preroll_section_callback() {
+		/* translators: Description for pre-roll audio section */
+		echo '<p>' . esc_html__( 'Configure a pre-roll audio file that will be played before your content audio. This is useful for advertisements or announcements.', 'listenup' ) . '</p>';
+	}
+
+	/**
+	 * Pre-roll audio field callback.
+	 */
+	public function preroll_audio_field_callback() {
+		$options = get_option( 'listenup_options' );
+		$pre_roll_audio = isset( $options['pre_roll_audio'] ) ? $options['pre_roll_audio'] : '';
+		
+		?>
+		<input type="text" id="pre_roll_audio" name="listenup_options[pre_roll_audio]" value="<?php echo esc_attr( $pre_roll_audio ); ?>" class="regular-text" />
+		<p class="description">
+			<?php esc_html_e( 'Enter the full path to your pre-roll audio file. Supported formats: MP3, WAV, OGG, M4A. Maximum file size: 10MB.', 'listenup' ); ?>
+		</p>
+		<?php if ( ! empty( $pre_roll_audio ) ) : ?>
+			<?php
+			$pre_roll_manager = ListenUp_Pre_Roll_Manager::get_instance();
+			$validation = $pre_roll_manager->validate_pre_roll_file( $pre_roll_audio );
+			?>
+			<?php if ( is_wp_error( $validation ) ) : ?>
+				<p class="description" style="color: #d63638;">
+					<strong><?php esc_html_e( 'Error:', 'listenup' ); ?></strong> <?php echo esc_html( $validation->get_error_message() ); ?>
+				</p>
+			<?php else : ?>
+				<p class="description" style="color: #00a32a;">
+					<strong><?php esc_html_e( 'Valid audio file:', 'listenup' ); ?></strong> <?php echo esc_html( $validation['file_size_formatted'] ); ?> (<?php echo esc_html( strtoupper( $validation['extension'] ) ); ?>)
+				</p>
+			<?php endif; ?>
+		<?php endif; ?>
+		<?php
 	}
 }
