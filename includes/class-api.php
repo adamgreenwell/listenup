@@ -149,7 +149,7 @@ class ListenUp_API {
 			'text' => $text,
 			'voiceId' => $voice_id,
 			'style' => $voice_style,
-			'format' => 'MP3',
+			'format' => 'WAV',
 			'modelVersion' => 'GEN2',
 		);
 
