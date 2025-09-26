@@ -18,7 +18,10 @@ ListenUp is a powerful WordPress plugin that adds text-to-speech functionality t
 
 * **Easy Audio Generation**: Generate audio for any post or page with a simple click
 * **Murf.ai Integration**: Uses professional AI voices for natural-sounding audio
+* **No FFmpeg Required**: Ideal for hosting environments where FFmpeg is not available or restricted
 * **Smart Caching**: Audio files are cached locally to save API credits
+* **Intelligent Chunking**: Long content is automatically broken into manageable chunks
+* **Seamless Playback**: Multiple audio chunks play continuously without interruption
 * **Flexible Placement**: Choose where to display the audio player (before/after content)
 * **Shortcode Support**: Use [listenup] shortcode to place players anywhere
 * **Accessibility First**: WCAG-compliant audio player with keyboard navigation
@@ -31,6 +34,14 @@ ListenUp is a powerful WordPress plugin that adds text-to-speech functionality t
 2. **Generate**: Use the meta box on any post/page to generate audio
 3. **Display**: Audio players appear automatically or via shortcode
 4. **Listen**: Visitors can play, pause, and download audio content
+
+= Advanced Features =
+
+**Content Chunking**: For posts that exceed Murf.ai's API limits, content is automatically broken into smaller chunks. Each chunk generates a separate audio file, but the frontend player seamlessly plays all chunks in sequence without interruption.
+
+**Audio Concatenation**: When downloading audio content that has been chunked, the plugin automatically concatenates all audio files into a single WAV file, ensuring compatibility across all platforms and devices.
+
+**No FFmpeg Dependency**: Unlike many audio plugins, ListenUp doesn't require FFmpeg, making it perfect for shared hosting environments, managed WordPress hosts, or any situation where FFmpeg is not available or restricted.
 
 = Perfect For =
 
@@ -71,11 +82,15 @@ Yes, but you'll need separate API keys for each site or ensure your Murf.ai plan
 
 = What audio formats are supported? =
 
-The plugin generates MP3 audio files, which are compatible with all modern browsers and devices.
+The plugin generates WAV audio files, which provide high-quality audio output and are compatible with all modern browsers and devices. WAV format ensures maximum compatibility across all platforms and devices.
 
 = Can I customize the audio player appearance? =
 
 Yes, the plugin includes CSS classes that you can customize in your theme's stylesheet.
+
+= What happens with very long posts? =
+
+For posts that exceed Murf.ai's API character limits, the plugin automatically breaks the content into smaller chunks. Each chunk is processed separately and saved as individual audio files. The frontend player seamlessly plays all chunks in sequence, and when users download the audio, all chunks are automatically concatenated into a single WAV file for maximum compatibility.
 
 == Changelog ==
 
