@@ -261,7 +261,8 @@ class ListenUp_API {
 
 			if ( is_wp_error( $response ) ) {
 				$debug->error( 'Chunk ' . $chunk['chunk_number'] . ' API Request Failed: ' . $response->get_error_message() );
-				return new WP_Error( 'chunk_api_failed', sprintf( __( 'Failed to generate audio for chunk %d: %s', 'listenup' ), $chunk['chunk_number'], $response->get_error_message() ) );
+				/* translators: %1$d is the chunk number, %2$s is the error message */
+				return new WP_Error( 'chunk_api_failed', sprintf( __( 'Failed to generate audio for chunk %1$d: %2$s', 'listenup' ), $chunk['chunk_number'], $response->get_error_message() ) );
 			}
 
 			$response_code = wp_remote_retrieve_response_code( $response );
@@ -271,12 +272,14 @@ class ListenUp_API {
 				$error_data = json_decode( $response_body, true );
 				$error_message = isset( $error_data['message'] ) ? $error_data['message'] : __( 'Unknown API error occurred.', 'listenup' );
 				$debug->error( 'Chunk ' . $chunk['chunk_number'] . ' API Error: ' . $error_message );
-				return new WP_Error( 'chunk_api_error', sprintf( __( 'API error for chunk %d: %s', 'listenup' ), $chunk['chunk_number'], $error_message ) );
+				/* translators: %1$d is the chunk number, %2$s is the error message */
+				return new WP_Error( 'chunk_api_error', sprintf( __( 'API error for chunk %1$d: %2$s', 'listenup' ), $chunk['chunk_number'], $error_message ) );
 			}
 
 			$response_data = json_decode( $response_body, true );
 
 			if ( ! isset( $response_data['audioFile'] ) ) {
+				/* translators: %d is the chunk number */
 				return new WP_Error( 'chunk_invalid_response', sprintf( __( 'Invalid response from API for chunk %d.', 'listenup' ), $chunk['chunk_number'] ) );
 			}
 
