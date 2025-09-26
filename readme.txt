@@ -94,6 +94,9 @@ For posts that exceed Murf.ai's API character limits, the plugin automatically b
 
 == Changelog ==
 
+= 1.2.0 =
+* Added ability to generate audio for posts that do not fit in the Murf.ai API request length
+
 = 1.1.1 =
 * Improved debug logging
 
