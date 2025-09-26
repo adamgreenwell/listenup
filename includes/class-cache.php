@@ -317,6 +317,40 @@ class ListenUp_Cache {
 	}
 
 	/**
+	 * Clear concatenated audio cache files.
+	 *
+	 * @return bool Success status.
+	 */
+	public function clear_concatenated_cache() {
+		if ( ! file_exists( $this->cache_dir ) ) {
+			return true;
+		}
+
+		$debug = ListenUp_Debug::get_instance();
+		$debug->info( 'Clearing concatenated audio cache files' );
+
+		// Find and delete concatenated files.
+		$pattern = $this->cache_dir . '/concatenated_*.wav';
+		$files = glob( $pattern );
+		
+		$deleted_count = 0;
+		$success = true;
+		
+		foreach ( $files as $file ) {
+			if ( wp_delete_file( $file ) ) {
+				$deleted_count++;
+				$debug->info( 'Deleted concatenated cache file: ' . basename( $file ) );
+			} else {
+				$success = false;
+				$debug->warning( 'Failed to delete concatenated cache file: ' . basename( $file ) );
+			}
+		}
+		
+		$debug->info( 'Cleared ' . $deleted_count . ' concatenated cache files' );
+		return $success;
+	}
+
+	/**
 	 * Get cache statistics.
 	 *
 	 * @return array Cache statistics.
