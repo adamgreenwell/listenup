@@ -47,6 +47,8 @@ class ListenUp_Frontend {
 	private function init_hooks() {
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
 		add_filter( 'the_content', array( $this, 'maybe_add_audio_player' ) );
+		add_action( 'wp_ajax_listenup_download_wav', array( $this, 'ajax_download_wav' ) );
+		add_action( 'wp_ajax_nopriv_listenup_download_wav', array( $this, 'ajax_download_wav' ) );
 	}
 
 	/**
@@ -64,11 +66,29 @@ class ListenUp_Frontend {
 		);
 
 		wp_enqueue_script(
-			'listenup-frontend',
-			LISTENUP_PLUGIN_URL . 'assets/js/frontend.js',
-			array( 'jquery' ),
+			'listenup-audio-concatenator',
+			LISTENUP_PLUGIN_URL . 'assets/js/audio-concatenator.js',
+			array(),
 			LISTENUP_VERSION,
 			true
+		);
+
+		wp_enqueue_script(
+			'listenup-frontend',
+			LISTENUP_PLUGIN_URL . 'assets/js/frontend.js',
+			array( 'jquery', 'listenup-audio-concatenator' ),
+			LISTENUP_VERSION,
+			true
+		);
+
+		// Localize script with AJAX data.
+		wp_localize_script(
+			'listenup-frontend',
+			'listenupAjax',
+			array(
+				'ajaxurl' => admin_url( 'admin-ajax.php' ),
+				'nonce' => wp_create_nonce( 'listenup_download_wav' ),
+			)
 		);
 	}
 
@@ -121,7 +141,7 @@ class ListenUp_Frontend {
 		}
 
 		// Generate audio player HTML.
-		$audio_player = $this->generate_audio_player( $cached_audio['url'], $post->ID );
+		$audio_player = $this->generate_audio_player( $cached_audio, $post->ID );
 
 		// Add player to content based on position.
 		if ( 'before' === $placement_position ) {
@@ -136,16 +156,39 @@ class ListenUp_Frontend {
 	/**
 	 * Generate audio player HTML.
 	 *
-	 * @param string $audio_url URL of the audio file.
-	 * @param int    $post_id Post ID.
+	 * @param string|array $audio_data Audio URL or array with audio data.
+	 * @param int          $post_id Post ID.
 	 * @return string Audio player HTML.
 	 */
-	public function generate_audio_player( $audio_url, $post_id = 0 ) {
+	public function generate_audio_player( $audio_data, $post_id = 0 ) {
 		$player_id = 'listenup-player-' . $post_id;
+		
+		// Handle both single URL and chunked audio data
+		$audio_url = '';
+		$audio_chunks = null;
+		
+		if ( is_array( $audio_data ) ) {
+			if ( isset( $audio_data['chunks'] ) ) {
+				$audio_chunks = $audio_data['chunks'];
+				$audio_url = isset( $audio_data['chunks'][0] ) ? $audio_data['chunks'][0] : ''; // Fallback URL
+			} else {
+				// Check if array has numeric keys (chunked audio) or is a single URL array
+				if ( isset( $audio_data[0] ) ) {
+					$audio_url = $audio_data[0]; // First chunk as fallback
+					$audio_chunks = $audio_data;
+				} else {
+					// Single audio file stored as array with non-numeric keys
+					$audio_url = reset( $audio_data ); // Get first value
+					$audio_chunks = null;
+				}
+			}
+		} else {
+			$audio_url = $audio_data;
+		}
 		
 		ob_start();
 		?>
-		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>">
+		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>" data-post-id="<?php echo esc_attr( $post_id ); ?>" <?php echo $audio_chunks ? 'data-audio-chunks="' . esc_attr( wp_json_encode( $audio_chunks ) ) . '"' : ''; ?>>
 			<div class="listenup-player-header">
 				<h3 class="listenup-player-title">
 					<?php /* translators: Audio player title */ esc_html_e( 'Listen to this content', 'listenup' ); ?>
@@ -211,6 +254,88 @@ class ListenUp_Frontend {
 			return '<p class="listenup-no-audio">' . esc_html__( 'No audio available for this content.', 'listenup' ) . '</p>';
 		}
 
-		return $this->generate_audio_player( $cached_audio['url'], $post_id );
+		return $this->generate_audio_player( $cached_audio, $post_id );
+	}
+
+	/**
+	 * AJAX handler for WAV download.
+	 */
+	public function ajax_download_wav() {
+		// Verify nonce for security.
+		if ( ! wp_verify_nonce( $_POST['nonce'] ?? '', 'listenup_download_wav' ) ) {
+			wp_die( 'Security check failed' );
+		}
+
+		$post_id = intval( $_POST['post_id'] ?? 0 );
+		if ( ! $post_id ) {
+			wp_die( 'Invalid post ID' );
+		}
+
+		// Check if audio exists for this post.
+		$cache = ListenUp_Cache::get_instance();
+		$cached_audio = $cache->get_cached_audio( $post_id );
+
+		if ( ! $cached_audio ) {
+			wp_die( 'No audio available for this post' );
+		}
+
+		// Get audio chunks.
+		$audio_chunks = null;
+		if ( is_array( $cached_audio ) && isset( $cached_audio['chunks'] ) ) {
+			$audio_chunks = $cached_audio['chunks'];
+		} elseif ( is_array( $cached_audio ) ) {
+			$audio_chunks = $cached_audio;
+		}
+
+		if ( ! $audio_chunks || count( $audio_chunks ) <= 1 ) {
+			wp_die( 'No chunked audio available for concatenation' );
+		}
+
+		// Use server-side concatenator to create WAV file.
+		$concatenator = ListenUp_Audio_Concatenator::get_instance();
+		$result = $concatenator->get_concatenated_audio_url( $audio_chunks, $post_id, 'wav' );
+
+		if ( is_wp_error( $result ) ) {
+			wp_die( 'Failed to concatenate audio: ' . $result->get_error_message() );
+		}
+
+		// Verify the file exists and get its size.
+		if ( ! file_exists( $result['file_path'] ) ) {
+			wp_die( 'Concatenated audio file not found' );
+		}
+
+		$file_size = filesize( $result['file_path'] );
+		if ( false === $file_size || $file_size === 0 ) {
+			wp_die( 'Concatenated audio file is empty or corrupted' );
+		}
+
+		// Set headers for file download.
+		$filename = 'listenup-audio-' . $post_id . '-' . date( 'Y-m-d-H-i-s' ) . '.wav';
+		
+		// Clear any previous output.
+		if ( ob_get_level() ) {
+			ob_end_clean();
+		}
+		
+		header( 'Content-Type: audio/wav' );
+		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+		header( 'Content-Length: ' . $file_size );
+		header( 'Cache-Control: no-cache, must-revalidate' );
+		header( 'Expires: Sat, 26 Jul 1997 05:00:00 GMT' );
+		header( 'Accept-Ranges: bytes' );
+
+		// Output the file in chunks to avoid memory issues.
+		$handle = fopen( $result['file_path'], 'rb' );
+		if ( $handle ) {
+			while ( ! feof( $handle ) ) {
+				echo fread( $handle, 8192 );
+				flush();
+			}
+			fclose( $handle );
+		} else {
+			wp_die( 'Could not read concatenated audio file' );
+		}
+		
+		exit;
 	}
 }

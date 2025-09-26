@@ -113,6 +113,21 @@
 	outline-offset: 2px;
 }
 
+.listenup-download-button.listenup-download-disabled,
+.listenup-download-button:disabled {
+	background: #f8f9fa;
+	border-color: #dee2e6;
+	color: #6c757d;
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+.listenup-download-button.listenup-download-disabled:hover,
+.listenup-download-button:disabled:hover {
+	background: #f8f9fa;
+	color: #6c757d;
+}
+
 .listenup-audio-element {
 	display: none;
 }
@@ -186,6 +201,19 @@
 	.listenup-download-button:hover {
 		background: black;
 		color: white;
+	}
+	
+	.listenup-download-button.listenup-download-disabled,
+	.listenup-download-button:disabled {
+		border-color: #666;
+		color: #666;
+		background: transparent;
+	}
+	
+	.listenup-download-button.listenup-download-disabled:hover,
+	.listenup-download-button:disabled:hover {
+		background: transparent;
+		color: #666;
 	}
 }
 

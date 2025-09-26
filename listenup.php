@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ListenUp
  * Description: Add "read this to me" functionality to your WordPress posts using Murf.ai text-to-speech technology.
- * Version: 1.1.1
+ * Version: 1.2.0
  * Author: Adam Greenwell
  * Author URI: https://adamgreenwell.com
  * License: GPL v2 or later
@@ -22,11 +22,47 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants.
-define( 'LISTENUP_VERSION', '1.1.1' );
+define( 'LISTENUP_VERSION', '1.2.0' );
 define( 'LISTENUP_PLUGIN_FILE', __FILE__ );
 define( 'LISTENUP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LISTENUP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'LISTENUP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
+
+/**
+ * Autoloader for ListenUp classes.
+ *
+ * @param string $class_name Class name to load.
+ */
+function listenup_autoloader( $class_name ) {
+	// Only autoload ListenUp classes
+	if ( 0 !== strpos( $class_name, 'ListenUp_' ) ) {
+		return;
+	}
+
+	// Convert class name to file name
+	$file_name = 'class-' . strtolower( str_replace( array( 'ListenUp_', '_' ), array( '', '-' ), $class_name ) ) . '.php';
+	
+	// Try includes directory first
+	$file_path = LISTENUP_PLUGIN_DIR . 'includes/' . $file_name;
+	
+	if ( file_exists( $file_path ) ) {
+		require_once $file_path;
+		return;
+	}
+	
+	// Try subdirectories if needed (for future organization)
+	$directories = array( 'admin', 'frontend', 'api', 'integrations' );
+	foreach ( $directories as $dir ) {
+		$file_path = LISTENUP_PLUGIN_DIR . 'includes/' . $dir . '/' . $file_name;
+		if ( file_exists( $file_path ) ) {
+			require_once $file_path;
+			return;
+		}
+	}
+}
+
+// Register the autoloader
+spl_autoload_register( 'listenup_autoloader' );
 
 /**
  * Main plugin class.
@@ -72,15 +108,13 @@ class ListenUp {
 
 	/**
 	 * Load plugin dependencies.
+	 * 
+	 * Note: Classes are now automatically loaded via the autoloader.
+	 * This method is kept for any non-class dependencies that might be added in the future.
 	 */
 	private function load_dependencies() {
-		require_once LISTENUP_PLUGIN_DIR . 'includes/class-debug.php';
-		require_once LISTENUP_PLUGIN_DIR . 'includes/class-admin.php';
-		require_once LISTENUP_PLUGIN_DIR . 'includes/class-api.php';
-		require_once LISTENUP_PLUGIN_DIR . 'includes/class-cache.php';
-		require_once LISTENUP_PLUGIN_DIR . 'includes/class-frontend.php';
-		require_once LISTENUP_PLUGIN_DIR . 'includes/class-meta-box.php';
-		require_once LISTENUP_PLUGIN_DIR . 'includes/class-shortcode.php';
+		// Non-class dependencies can be loaded here if needed in the future.
+		// Class files are automatically loaded via the autoloader when instantiated.
 	}
 
 	/**
@@ -126,6 +160,7 @@ class ListenUp {
 			'selected_voice_style' => 'Narration',
 			'auto_placement' => 'none',
 			'placement_position' => 'after',
+			'pre_roll_audio' => '',
 		);
 		
 		add_option( 'listenup_options', $default_options );
