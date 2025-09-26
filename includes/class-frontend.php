@@ -170,10 +170,17 @@ class ListenUp_Frontend {
 		if ( is_array( $audio_data ) ) {
 			if ( isset( $audio_data['chunks'] ) ) {
 				$audio_chunks = $audio_data['chunks'];
-				$audio_url = $audio_data['chunks'][0]; // Fallback URL
+				$audio_url = isset( $audio_data['chunks'][0] ) ? $audio_data['chunks'][0] : ''; // Fallback URL
 			} else {
-				$audio_url = $audio_data[0]; // First chunk as fallback
-				$audio_chunks = $audio_data;
+				// Check if array has numeric keys (chunked audio) or is a single URL array
+				if ( isset( $audio_data[0] ) ) {
+					$audio_url = $audio_data[0]; // First chunk as fallback
+					$audio_chunks = $audio_data;
+				} else {
+					// Single audio file stored as array with non-numeric keys
+					$audio_url = reset( $audio_data ); // Get first value
+					$audio_chunks = null;
+				}
 			}
 		} else {
 			$audio_url = $audio_data;
@@ -181,7 +188,7 @@ class ListenUp_Frontend {
 		
 		ob_start();
 		?>
-		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>" <?php echo $audio_chunks ? 'data-audio-chunks="' . esc_attr( wp_json_encode( $audio_chunks ) ) . '"' : ''; ?>>
+		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>" data-post-id="<?php echo esc_attr( $post_id ); ?>" <?php echo $audio_chunks ? 'data-audio-chunks="' . esc_attr( wp_json_encode( $audio_chunks ) ) . '"' : ''; ?>>
 			<div class="listenup-player-header">
 				<h3 class="listenup-player-title">
 					<?php /* translators: Audio player title */ esc_html_e( 'Listen to this content', 'listenup' ); ?>
