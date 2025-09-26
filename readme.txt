@@ -4,7 +4,7 @@ Tags: audio, text-to-speech, accessibility, tts
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.2.01
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -93,6 +93,9 @@ Yes, the plugin includes CSS classes that you can customize in your theme's styl
 For posts that exceed Murf.ai's API character limits, the plugin automatically breaks the content into smaller chunks. Each chunk is processed separately and saved as individual audio files. The frontend player seamlessly plays all chunks in sequence, and when users download the audio, all chunks are automatically concatenated into a single WAV file for maximum compatibility.
 
 == Changelog ==
+
+- 1.2.01 =
+* Minor frontend player presentation improvements
 
 = 1.2.0 =
 * Added ability to generate audio for posts that do not fit in the Murf.ai API request length

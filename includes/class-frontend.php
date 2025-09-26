@@ -197,8 +197,12 @@ class ListenUp_Frontend {
 			
 			<div class="listenup-player-controls">
 				<button type="button" class="listenup-play-button" aria-label="<?php /* translators: Play button aria label */ esc_attr_e( 'Play audio', 'listenup' ); ?>">
-					<span class="listenup-play-icon" aria-hidden="true">▶</span>
-					<span class="listenup-pause-icon" aria-hidden="true" style="display: none;">⏸</span>
+					<span class="listenup-play-icon" aria-hidden="true">
+						<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="64px" height="64px" viewBox="0 0 64 64"><g transform="translate(0, 0)"><path d="M54.56,31.171l-40-27A1,1,0,0,0,13,5V59a1,1,0,0,0,1.56.829l40-27a1,1,0,0,0,0-1.658Z" fill="#444444"></path></g></svg>
+					</span>
+					<span class="listenup-pause-icon" aria-hidden="true" style="display: none;">
+						<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="64px" height="64px" viewBox="0 0 64 64"><g transform="translate(0, 0)"><rect x="4" y="4" width="17" height="56" rx="2" fill="#444444"></rect><rect data-color="color-2" x="43" y="4" width="17" height="56" rx="2" fill="#444444"></rect></g></svg>
+					</span>
 				</button>
 				
 				<div class="listenup-progress-container">
@@ -212,7 +216,9 @@ class ListenUp_Frontend {
 				</div>
 				
 				<button type="button" class="listenup-download-button" aria-label="<?php /* translators: Download button aria label */ esc_attr_e( 'Download audio', 'listenup' ); ?>">
-					<span class="listenup-download-icon" aria-hidden="true">⬇</span>
+					<span class="listenup-download-icon" aria-hidden="true">
+						<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="64px" height="64px" viewBox="0 0 64 64"><g transform="translate(0, 0)"><path data-color="color-2" d="M31.206,44.607a1,1,0,0,0,1.588,0l13-17A1,1,0,0,0,45,26H35V6a3,3,0,0,0-6,0V26H19a1,1,0,0,0-.794,1.607Z" fill="#444444"></path><path d="M60,41a1,1,0,0,0-1,1V53a4,4,0,0,1-4,4H9a4,4,0,0,1-4-4V42a1,1,0,0,0-2,0V53a6.006,6.006,0,0,0,6,6H55a6.006,6.006,0,0,0,6-6V42A1,1,0,0,0,60,41Z" fill="#444444"></path></g></svg>
+					</span>
 				</button>
 			</div>
 			
