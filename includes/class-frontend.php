@@ -256,4 +256,86 @@ class ListenUp_Frontend {
 
 		return $this->generate_audio_player( $cached_audio, $post_id );
 	}
+
+	/**
+	 * AJAX handler for WAV download.
+	 */
+	public function ajax_download_wav() {
+		// Verify nonce for security.
+		if ( ! wp_verify_nonce( $_POST['nonce'] ?? '', 'listenup_download_wav' ) ) {
+			wp_die( 'Security check failed' );
+		}
+
+		$post_id = intval( $_POST['post_id'] ?? 0 );
+		if ( ! $post_id ) {
+			wp_die( 'Invalid post ID' );
+		}
+
+		// Check if audio exists for this post.
+		$cache = ListenUp_Cache::get_instance();
+		$cached_audio = $cache->get_cached_audio( $post_id );
+
+		if ( ! $cached_audio ) {
+			wp_die( 'No audio available for this post' );
+		}
+
+		// Get audio chunks.
+		$audio_chunks = null;
+		if ( is_array( $cached_audio ) && isset( $cached_audio['chunks'] ) ) {
+			$audio_chunks = $cached_audio['chunks'];
+		} elseif ( is_array( $cached_audio ) ) {
+			$audio_chunks = $cached_audio;
+		}
+
+		if ( ! $audio_chunks || count( $audio_chunks ) <= 1 ) {
+			wp_die( 'No chunked audio available for concatenation' );
+		}
+
+		// Use server-side concatenator to create WAV file.
+		$concatenator = ListenUp_Audio_Concatenator::get_instance();
+		$result = $concatenator->get_concatenated_audio_url( $audio_chunks, $post_id, 'wav' );
+
+		if ( is_wp_error( $result ) ) {
+			wp_die( 'Failed to concatenate audio: ' . $result->get_error_message() );
+		}
+
+		// Verify the file exists and get its size.
+		if ( ! file_exists( $result['file_path'] ) ) {
+			wp_die( 'Concatenated audio file not found' );
+		}
+
+		$file_size = filesize( $result['file_path'] );
+		if ( false === $file_size || $file_size === 0 ) {
+			wp_die( 'Concatenated audio file is empty or corrupted' );
+		}
+
+		// Set headers for file download.
+		$filename = 'listenup-audio-' . $post_id . '-' . date( 'Y-m-d-H-i-s' ) . '.wav';
+		
+		// Clear any previous output.
+		if ( ob_get_level() ) {
+			ob_end_clean();
+		}
+		
+		header( 'Content-Type: audio/wav' );
+		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+		header( 'Content-Length: ' . $file_size );
+		header( 'Cache-Control: no-cache, must-revalidate' );
+		header( 'Expires: Sat, 26 Jul 1997 05:00:00 GMT' );
+		header( 'Accept-Ranges: bytes' );
+
+		// Output the file in chunks to avoid memory issues.
+		$handle = fopen( $result['file_path'], 'rb' );
+		if ( $handle ) {
+			while ( ! feof( $handle ) ) {
+				echo fread( $handle, 8192 );
+				flush();
+			}
+			fclose( $handle );
+		} else {
+			wp_die( 'Could not read concatenated audio file' );
+		}
+		
+		exit;
+	}
 }
