@@ -94,6 +94,9 @@ For posts that exceed Murf.ai's API character limits, the plugin automatically b
 
 == Changelog ==
 
+- 1.2.01 =
+* Minor frontend player presentation improvements
+
 = 1.2.0 =
 * Added ability to generate audio for posts that do not fit in the Murf.ai API request length
 
