@@ -286,6 +286,11 @@ class ListenUp_Cache {
 			wp_delete_file( $cache_file );
 		}
 
+		// Also clear any concatenated files for this post.
+		// Note: Concatenated files are cached by URL hash, not post ID,
+		// so we can't easily target specific posts, but we'll clear all concatenated files.
+		$this->clear_concatenated_cache();
+
 		return $success;
 	}
 
