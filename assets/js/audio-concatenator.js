@@ -186,7 +186,6 @@
                 }
             }
 
-            console.log(`ListenUp: Created WAV file - Duration: ${duration.toFixed(2)}s, Sample Rate: ${sampleRate}Hz, Channels: ${numberOfChannels}, Size: ${(bufferSize / 1024 / 1024).toFixed(2)}MB`);
             
             return buffer;
         }
@@ -296,24 +295,16 @@
                 throw new Error('Web Audio API is not supported in this browser');
             }
 
-            console.log('ListenUp: Starting audio concatenation for', audioUrls.length, 'chunks');
-
             try {
                 // Download and decode all audio chunks
                 const downloadPromises = audioUrls.map(url => this.downloadAndDecodeAudio(url));
                 const audioBuffers = await Promise.all(downloadPromises);
 
-                console.log('ListenUp: Downloaded and decoded', audioBuffers.length, 'audio chunks');
-
                 // Concatenate the buffers
                 const concatenatedBuffer = this.concatenateAudioBuffers(audioBuffers);
 
-                console.log('ListenUp: Concatenated audio buffer created, length:', concatenatedBuffer.duration, 'seconds');
-
                 // Convert to blob URL
                 const blobUrl = await this.audioBufferToBlob(concatenatedBuffer);
-
-                console.log('ListenUp: Audio concatenation completed, blob URL created');
 
                 return {
                     success: true,
