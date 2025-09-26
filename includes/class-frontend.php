@@ -334,6 +334,7 @@ class ListenUp_Frontend {
 		$handle = fopen( $result['file_path'], 'rb' );
 		if ( $handle ) {
 			while ( ! feof( $handle ) ) {
+				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Binary file output
 				echo fread( $handle, 8192 );
 				flush();
 			}
