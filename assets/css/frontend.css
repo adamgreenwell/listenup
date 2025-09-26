@@ -59,6 +59,19 @@
 	cursor: not-allowed;
 }
 
+.listenup-play-button .listenup-play-icon,
+.listenup-play-button .listenup-pause-icon {
+	width: 24px;
+	height: 24px;
+}
+
+.listenup-play-button .listenup-play-icon svg,
+.listenup-play-button .listenup-pause-icon svg {
+	width: 24px;
+	height: 24px;
+	filter: brightness(0) invert(1);
+}
+
 .listenup-progress-container {
 	flex: 1;
 	display: flex;
@@ -91,8 +104,7 @@
 
 .listenup-download-button {
 	background: transparent;
-	border: 1px solid #007cba;
-	color: #007cba;
+	border: none;
 	border-radius: 4px;
 	padding: 8px 12px;
 	cursor: pointer;
@@ -104,8 +116,7 @@
 }
 
 .listenup-download-button:hover {
-	background: #007cba;
-	color: white;
+	background: #fff;
 }
 
 .listenup-download-button:focus {
@@ -126,6 +137,16 @@
 .listenup-download-button:disabled:hover {
 	background: #f8f9fa;
 	color: #6c757d;
+}
+
+.listenup-download-button .listenup-download-icon {
+	width: 24px;
+	height: 24px;
+}
+
+.listenup-download-button .listenup-download-icon svg {
+	width: 24px;
+	height: 24px;
 }
 
 .listenup-audio-element {
