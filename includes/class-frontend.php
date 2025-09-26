@@ -80,6 +80,16 @@ class ListenUp_Frontend {
 			LISTENUP_VERSION,
 			true
 		);
+
+		// Localize script with AJAX data.
+		wp_localize_script(
+			'listenup-frontend',
+			'listenupAjax',
+			array(
+				'ajaxurl' => admin_url( 'admin-ajax.php' ),
+				'nonce' => wp_create_nonce( 'listenup_download_wav' ),
+			)
+		);
 	}
 
 	/**
