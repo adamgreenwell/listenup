@@ -110,17 +110,23 @@
         }
 
         /**
-         * Create WAV file from audio buffer
+         * Create high-quality WAV file from audio buffer with enhanced metadata for macOS compatibility
          */
         createWavFile(audioBuffer) {
             const numberOfChannels = audioBuffer.numberOfChannels;
             const sampleRate = audioBuffer.sampleRate;
             const length = audioBuffer.length;
-            const bytesPerSample = 2; // 16-bit
+            const bytesPerSample = 2; // 16-bit for compatibility
             const blockAlign = numberOfChannels * bytesPerSample;
             const byteRate = sampleRate * blockAlign;
             const dataSize = length * blockAlign;
-            const bufferSize = 44 + dataSize;
+            
+            // Calculate duration in seconds for metadata
+            const duration = length / sampleRate;
+            
+            // Enhanced WAV with LIST chunk for metadata
+            const listChunkSize = this.createListChunkSize(duration);
+            const bufferSize = 44 + listChunkSize + dataSize;
 
             const buffer = new ArrayBuffer(bufferSize);
             const view = new DataView(buffer);
@@ -132,31 +138,154 @@
                 }
             };
 
+            // RIFF header
             writeString(0, 'RIFF');
             view.setUint32(4, bufferSize - 8, true);
             writeString(8, 'WAVE');
+            
+            // fmt chunk - Enhanced with proper PCM format specification
             writeString(12, 'fmt ');
-            view.setUint32(16, 16, true);
-            view.setUint16(20, 1, true);
+            view.setUint32(16, 16, true); // fmt chunk size
+            view.setUint16(20, 1, true); // PCM format (uncompressed)
             view.setUint16(22, numberOfChannels, true);
             view.setUint32(24, sampleRate, true);
             view.setUint32(28, byteRate, true);
             view.setUint16(32, blockAlign, true);
-            view.setUint16(34, 16, true);
-            writeString(36, 'data');
-            view.setUint32(40, dataSize, true);
+            view.setUint16(34, 16, true); // bits per sample
+            
+            // LIST chunk with metadata for macOS compatibility
+            const listOffset = this.writeListChunk(view, 36, duration, sampleRate, length);
+            
+            // data chunk
+            writeString(listOffset, 'data');
+            view.setUint32(listOffset + 4, dataSize, true);
 
-            // Convert float samples to 16-bit PCM
-            let offset = 44;
+            // Convert float samples to 16-bit PCM with proper dithering
+            let offset = listOffset + 8;
             for (let i = 0; i < length; i++) {
                 for (let channel = 0; channel < numberOfChannels; channel++) {
-                    const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(channel)[i]));
-                    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                    let sample = audioBuffer.getChannelData(channel)[i];
+                    
+                    // Clamp sample to valid range
+                    sample = Math.max(-1, Math.min(1, sample));
+                    
+                    // Convert to 16-bit with proper rounding
+                    let pcmSample;
+                    if (sample < 0) {
+                        pcmSample = Math.round(sample * 0x8000);
+                        // Ensure we don't exceed 16-bit signed range
+                        pcmSample = Math.max(pcmSample, -0x8000);
+                    } else {
+                        pcmSample = Math.round(sample * 0x7FFF);
+                        // Ensure we don't exceed 16-bit signed range
+                        pcmSample = Math.min(pcmSample, 0x7FFF);
+                    }
+                    
+                    view.setInt16(offset, pcmSample, true); // little-endian
                     offset += 2;
                 }
             }
 
+            console.log(`ListenUp: Created WAV file - Duration: ${duration.toFixed(2)}s, Sample Rate: ${sampleRate}Hz, Channels: ${numberOfChannels}, Size: ${(bufferSize / 1024 / 1024).toFixed(2)}MB`);
+            
             return buffer;
+        }
+
+        /**
+         * Calculate size needed for LIST chunk with metadata
+         */
+        createListChunkSize(duration) {
+            // INFO chunk with comprehensive metadata for macOS compatibility
+            const infoEntries = [
+                'INAM', 'ListenUp Audio', // Title
+                'IART', 'ListenUp Plugin', // Artist
+                'ICMT', `Duration: ${duration.toFixed(2)}s | Concatenated Audio`, // Comment with duration
+                'ISFT', 'ListenUp Audio Concatenator v1.0', // Software
+                'ISBJ', 'Text-to-Speech Audio', // Subject
+                'IGNR', 'Speech', // Genre
+                'ICRD', new Date().toISOString().split('T')[0], // Creation date
+                'ITRK', '1/1', // Track number
+                'IKEY', 'ListenUp,Audio,Speech,TTS' // Keywords
+            ];
+            
+            let size = 4; // 'LIST' header
+            size += 4; // chunk size
+            size += 4; // 'INFO' type
+            
+            infoEntries.forEach(entry => {
+                size += 4; // entry type
+                size += 4; // entry size
+                size += entry.length; // entry data
+                size += entry.length % 2; // padding for even alignment
+            });
+            
+            return size;
+        }
+
+        /**
+         * Write LIST chunk with comprehensive metadata
+         */
+        writeListChunk(view, offset, duration, sampleRate, length) {
+            const writeString = (pos, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(pos + i, string.charCodeAt(i));
+                }
+                return pos + string.length;
+            };
+
+            let pos = offset;
+            
+            // LIST header
+            pos = writeString(pos, 'LIST');
+            
+            // Calculate chunk size
+            const infoEntries = [
+                'INAM', 'ListenUp Audio',
+                'IART', 'ListenUp Plugin', 
+                'ICMT', `Duration: ${duration.toFixed(2)}s | Concatenated Audio`,
+                'ISFT', 'ListenUp Audio Concatenator v1.0',
+                'ISBJ', 'Text-to-Speech Audio',
+                'IGNR', 'Speech',
+                'ICRD', new Date().toISOString().split('T')[0],
+                'ITRK', '1/1',
+                'IKEY', 'ListenUp,Audio,Speech,TTS'
+            ];
+            
+            let chunkSize = 4; // 'INFO' type
+            infoEntries.forEach(entry => {
+                chunkSize += 4 + 4 + entry.length + (entry.length % 2);
+            });
+            
+            view.setUint32(pos, chunkSize, true);
+            pos += 4;
+            
+            // INFO type
+            pos = writeString(pos, 'INFO');
+            
+            // Write INFO entries
+            infoEntries.forEach(entry => {
+                // Write entry type (4-byte ASCII)
+                const typeBytes = entry.split('').map(char => char.charCodeAt(0));
+                for (let i = 0; i < 4; i++) {
+                    view.setUint8(pos + i, typeBytes[i] || 0);
+                }
+                pos += 4;
+                
+                // Write entry size
+                view.setUint32(pos, entry.length, true);
+                pos += 4;
+                
+                // Write entry data
+                pos = writeString(pos, entry);
+                
+                // Add padding for even alignment
+                if (entry.length % 2) {
+                    view.setUint8(pos, 0);
+                    pos += 1;
+                }
+            });
+            
+            return pos;
         }
 
         /**
