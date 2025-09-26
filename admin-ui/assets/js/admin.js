@@ -129,13 +129,8 @@
             $(document).on('click', '.voice-preview-btn', this.previewVoice.bind(this));
             $(document).on('change', '.voice-style-select', this.handleStyleChange.bind(this));
             
-            // Debug: Check if elements exist
-            console.log('Voice picker trigger exists:', $('#voice-picker-trigger').length);
-            console.log('Voice picker modal exists:', $('#voice-picker-modal').length);
-            
             // Simple test click handler
             $(document).on('click', '#voice-picker-trigger', function(e) {
-                console.log('Simple click handler triggered!');
                 e.preventDefault();
                 e.stopPropagation();
                 $('#voice-picker-modal').show();
@@ -144,13 +139,9 @@
 
         openVoicePicker(e) {
             e.preventDefault();
-            console.log('Voice picker trigger clicked!');
             const $trigger = $(e.currentTarget);
             const $modal = $('#voice-picker-modal');
             const $search = $('#voice-search');
-            
-            console.log('Modal element:', $modal);
-            console.log('Modal length:', $modal.length);
             
             $modal.show();
             $trigger.addClass('active');
