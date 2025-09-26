@@ -302,7 +302,7 @@ class ListenUp_Frontend {
 		$result = $concatenator->get_concatenated_audio_url( $audio_chunks, $post_id, 'wav' );
 
 		if ( is_wp_error( $result ) ) {
-			wp_die( 'Failed to concatenate audio: ' . $result->get_error_message() );
+			wp_die( 'Failed to concatenate audio: ' . esc_html( $result->get_error_message() ) );
 		}
 
 		// Verify the file exists and get its size.
