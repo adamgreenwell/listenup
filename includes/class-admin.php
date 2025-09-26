@@ -657,8 +657,16 @@ class ListenUp_Admin {
 			) );
 		}
 		
-		// Check if log file is writable
-		if ( ! is_writable( $log_file ) ) {
+		// Check if log file is writable using WP_Filesystem
+		if ( ! WP_Filesystem() ) {
+			wp_send_json_success( array(
+				'success' => false,
+				'message' => __( 'Unable to initialize filesystem access.', 'listenup' ),
+			) );
+		}
+		
+		global $wp_filesystem;
+		if ( ! $wp_filesystem->is_writable( $log_file ) ) {
 			wp_send_json_success( array(
 				'success' => false,
 				'message' => __( 'Debug log file is not writable. Please check file permissions.', 'listenup' ),
