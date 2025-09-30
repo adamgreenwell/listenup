@@ -49,6 +49,8 @@ class ListenUp_Frontend {
 		add_filter( 'the_content', array( $this, 'maybe_add_audio_player' ) );
 		add_action( 'wp_ajax_listenup_download_wav', array( $this, 'ajax_download_wav' ) );
 		add_action( 'wp_ajax_nopriv_listenup_download_wav', array( $this, 'ajax_download_wav' ) );
+		add_action( 'wp_ajax_listenup_serve_audio', array( $this, 'ajax_serve_audio' ) );
+		add_action( 'wp_ajax_nopriv_listenup_serve_audio', array( $this, 'ajax_serve_audio' ) );
 	}
 
 	/**
