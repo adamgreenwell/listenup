@@ -22,6 +22,8 @@ ListenUp is a powerful WordPress plugin that adds text-to-speech functionality t
 * **Smart Caching**: Audio files are cached locally to save API credits
 * **Intelligent Chunking**: Long content is automatically broken into manageable chunks
 * **Seamless Playback**: Multiple audio chunks play continuously without interruption
+* **Leech Protection**: Secure audio delivery prevents unauthorized direct file access and hotlinking
+* **Download Control**: Restrict downloads to logged-in users or disable downloads entirely
 * **Flexible Placement**: Choose where to display the audio player (before/after content)
 * **Shortcode Support**: Use [listenup] shortcode to place players anywhere
 * **Accessibility First**: WCAG-compliant audio player with keyboard navigation
@@ -42,6 +44,8 @@ ListenUp is a powerful WordPress plugin that adds text-to-speech functionality t
 **Audio Concatenation**: When downloading audio content that has been chunked, the plugin automatically concatenates all audio files into a single WAV file, ensuring compatibility across all platforms and devices.
 
 **No FFmpeg Dependency**: Unlike many audio plugins, ListenUp doesn't require FFmpeg, making it perfect for shared hosting environments, managed WordPress hosts, or any situation where FFmpeg is not available or restricted.
+
+**Leech Protection**: Audio files are served through a secure PHP proxy with nonce-based authentication, preventing unauthorized direct access and hotlinking. All audio is delivered via WordPress AJAX endpoints with proper HTTP range request support for smooth seeking. This server-agnostic solution works on Apache, Nginx, IIS, and any PHP-capable server without requiring special server configuration.
 
 = Perfect For =
 
@@ -92,7 +96,38 @@ Yes, the plugin includes CSS classes that you can customize in your theme's styl
 
 For posts that exceed Murf.ai's API character limits, the plugin automatically breaks the content into smaller chunks. Each chunk is processed separately and saved as individual audio files. The frontend player seamlessly plays all chunks in sequence, and when users download the audio, all chunks are automatically concatenated into a single WAV file for maximum compatibility.
 
+= How does the leech protection work? =
+
+ListenUp serves all audio files through a secure PHP proxy instead of allowing direct file access. Each audio URL includes a WordPress nonce for authentication, preventing unauthorized access and hotlinking. The system supports HTTP range requests for smooth audio seeking and includes proper caching headers for performance. This protection works automatically without requiring any server configuration.
+
+= Can I block direct access to audio files at the server level? =
+
+Yes! For additional security, you can configure your web server to block direct access to the audio directory. Here are example configurations:
+
+**For Apache (.htaccess):**
+Add this to `/wp-content/uploads/listenup-audio/.htaccess`:
+```
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule .* - [F,L]
+</IfModule>
+```
+
+**For Nginx:**
+Add this to your server block configuration:
+```
+location ~* ^/wp-content/uploads/listenup-audio/ {
+    return 403;
+}
+```
+
+After implementing server-level blocks, audio will still play normally through the WordPress player because the plugin reads files directly from the filesystem, bypassing the web server's URL routing entirely.
+
 == Changelog ==
+
+= 1.3.0
+* Restrict download to logged-in users or block all downloads completely
+* Implemented leech protection (requires server configuration)
 
 - 1.2.01 =
 * Minor frontend player presentation improvements
