@@ -118,7 +118,7 @@ class ListenUp_Audio_Concatenator {
 
 		if ( $final_size < 1000 ) {
 			$debug->error( 'Concatenated file is too small (size: ' . $final_size . ' bytes), likely corrupted' );
-			unlink( $cache_file );
+			wp_delete_file( $cache_file );
 			return new WP_Error( 'corrupted_file', __( 'Concatenated audio file is corrupted.', 'listenup' ) );
 		}
 
