@@ -193,6 +193,12 @@ class ListenUp_Frontend {
 		} else {
 			$audio_url = $audio_data;
 		}
+
+		// Convert all URLs to secure URLs.
+		$audio_url = $this->get_secure_audio_url( $audio_url );
+		if ( $audio_chunks ) {
+			$audio_chunks = array_map( array( $this, 'get_secure_audio_url' ), $audio_chunks );
+		}
 		
 		ob_start();
 		?>
