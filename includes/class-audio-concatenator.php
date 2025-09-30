@@ -172,8 +172,15 @@ class ListenUp_Audio_Concatenator {
 	private function concatenate_wav_files_reconstructed( $audio_urls, $output_path ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Reconstructing WAV file from scratch to avoid macOS metadata issues' );
+		
+		// Initialize WordPress filesystem.
+		if ( ! WP_Filesystem() ) {
+			return new WP_Error( 'filesystem_init_failed', __( 'Could not initialize WordPress filesystem.', 'listenup' ) );
+		}
+		global $wp_filesystem;
 
 		// Increase execution time limit for large files.
+		// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for large file processing
 		set_time_limit( 300 ); // 5 minutes
 
 		$temp_files = array();
