@@ -33,14 +33,42 @@
         
         async init() {
             this.bindEvents();
+            this.checkDownloadPermission();
             this.setupDownload();
-            
+
             // Handle chunked audio if present
             if (this.audioChunks && this.audioChunks.length > 1) {
                 this.disableDownloadButton();
                 await this.handleChunkedAudio();
                 this.enableDownloadButton();
             }
+        }
+
+        /**
+         * Check download permission and hide button if necessary
+         */
+        checkDownloadPermission() {
+            if (!window.listenupAjax) {
+                return;
+            }
+
+            const restriction = window.listenupAjax.downloadRestriction;
+            const isLoggedIn = window.listenupAjax.isUserLoggedIn;
+
+            // Hide button completely if downloads are disabled
+            if (restriction === 'disable') {
+                this.downloadButton.hide();
+                return;
+            }
+
+            // Hide button for non-logged-in users if restriction is set
+            if (restriction === 'logged_in_only' && !isLoggedIn) {
+                this.downloadButton.hide();
+                return;
+            }
+
+            // Show button for all other cases
+            this.downloadButton.show();
         }
         
         /**
