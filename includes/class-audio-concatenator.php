@@ -237,7 +237,10 @@ class ListenUp_Audio_Concatenator {
 			$expected_duration = $total_data_size / $bytes_per_second;
 			$debug->info( 'Expected duration: ' . round( $expected_duration, 2 ) . ' seconds (' . round( $expected_duration / 60, 2 ) . ' minutes)' );
 
-			// Create new WAV file with proper headers.
+			// Create new WAV file with proper headers using WP_Filesystem for binary data.
+			// Note: For precise binary audio processing, we need to use direct file operations
+			// as WP_Filesystem doesn't support the fine-grained control needed for audio concatenation.
+			// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for binary audio processing with precise control
 			$output_handle = fopen( $output_path, 'wb' );
 			if ( ! $output_handle ) {
 				$this->cleanup_temp_files( $temp_files );
