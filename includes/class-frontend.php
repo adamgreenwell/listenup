@@ -83,6 +83,10 @@ class ListenUp_Frontend {
 			true
 		);
 
+		// Get download restriction setting.
+		$options = get_option( 'listenup_options' );
+		$download_restriction = isset( $options['download_restriction'] ) ? $options['download_restriction'] : 'allow_all';
+
 		// Localize script with AJAX data.
 		wp_localize_script(
 			'listenup-frontend',
@@ -90,6 +94,8 @@ class ListenUp_Frontend {
 			array(
 				'ajaxurl' => admin_url( 'admin-ajax.php' ),
 				'nonce' => wp_create_nonce( 'listenup_download_wav' ),
+				'downloadRestriction' => $download_restriction,
+				'isUserLoggedIn' => is_user_logged_in(),
 			)
 		);
 	}
