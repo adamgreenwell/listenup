@@ -315,8 +315,11 @@ class ListenUp_Audio_Concatenator {
 	private function concatenate_wav_files_binary( $audio_urls, $output_path ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Using binary concatenation for WAV files (fallback method)' );
+		
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for binary audio processing
 
 		// Increase execution time limit for large files.
+		// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for large file processing
 		set_time_limit( 300 ); // 5 minutes
 
 		$temp_files = array();
