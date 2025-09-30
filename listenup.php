@@ -161,8 +161,9 @@ class ListenUp {
 			'auto_placement' => 'none',
 			'placement_position' => 'after',
 			'pre_roll_audio' => '',
+			'download_restriction' => 'allow_all',
 		);
-		
+
 		add_option( 'listenup_options', $default_options );
 	}
 
