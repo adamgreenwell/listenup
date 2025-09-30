@@ -83,7 +83,7 @@ class ListenUp_Audio_Concatenator {
 			// Check if the cached file is corrupted (too small).
 			if ( $file_size < 1000 ) { // Less than 1KB is likely corrupted.
 				$debug->warning( 'Cached file appears corrupted (size: ' . $file_size . ' bytes), regenerating...' );
-				unlink( $cache_file );
+				wp_delete_file( $cache_file );
 			} else {
 				return array(
 					'success' => true,
