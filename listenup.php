@@ -128,6 +128,7 @@ class ListenUp {
 		ListenUp_Frontend::get_instance();
 		ListenUp_Meta_Box::get_instance();
 		ListenUp_Shortcode::get_instance();
+		ListenUp_Library_Shortcode::get_instance();
 	}
 
 	/**
