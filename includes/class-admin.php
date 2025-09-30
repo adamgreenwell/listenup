@@ -131,6 +131,15 @@ class ListenUp_Admin {
 			'listenup_display_section'
 		);
 
+		add_settings_field(
+			'download_restriction',
+			/* translators: Download restriction field label */
+			__( 'Download Restrictions', 'listenup' ),
+			array( $this, 'download_restriction_field_callback' ),
+			'listenup-settings',
+			'listenup_display_section'
+		);
+
 		add_settings_section(
 			'listenup_preroll_section',
 			/* translators: Settings section title */
@@ -201,6 +210,13 @@ class ListenUp_Admin {
 
 		if ( isset( $input['debug_enabled'] ) ) {
 			$sanitized['debug_enabled'] = (bool) $input['debug_enabled'];
+		}
+
+		if ( isset( $input['download_restriction'] ) ) {
+			$allowed_values = array( 'allow_all', 'logged_in_only', 'disable' );
+			$sanitized['download_restriction'] = in_array( $input['download_restriction'], $allowed_values, true )
+				? $input['download_restriction']
+				: 'allow_all';
 		}
 
 		return $sanitized;
@@ -348,6 +364,49 @@ class ListenUp_Admin {
 		<p class="description">
 			<?php esc_html_e( 'Choose where to place the audio player when using automatic placement.', 'listenup' ); ?>
 		</p>
+		<?php
+	}
+
+	/**
+	 * Download restriction field callback.
+	 */
+	public function download_restriction_field_callback() {
+		$options = get_option( 'listenup_options' );
+		$download_restriction = isset( $options['download_restriction'] ) ? $options['download_restriction'] : 'allow_all';
+
+		$choices = array(
+			'allow_all' => array(
+				'label' => __( 'Allow all users to download', 'listenup' ),
+				'description' => __( 'Anyone can download audio files, including visitors who are not logged in.', 'listenup' ),
+			),
+			'logged_in_only' => array(
+				'label' => __( 'Restrict downloads to logged-in users only', 'listenup' ),
+				'description' => __( 'Only users who are logged in to your WordPress site can download audio files.', 'listenup' ),
+			),
+			'disable' => array(
+				'label' => __( 'Disable downloads completely', 'listenup' ),
+				'description' => __( 'Remove the download button entirely. Users can still listen to audio online.', 'listenup' ),
+			),
+		);
+
+		?>
+		<fieldset>
+			<?php foreach ( $choices as $value => $choice ) : ?>
+				<label style="display: block; margin-bottom: 12px;">
+					<input
+						type="radio"
+						name="listenup_options[download_restriction]"
+						value="<?php echo esc_attr( $value ); ?>"
+						<?php checked( $download_restriction, $value ); ?>
+					/>
+					<strong><?php echo esc_html( $choice['label'] ); ?></strong>
+					<br/>
+					<span class="description" style="margin-left: 24px;">
+						<?php echo esc_html( $choice['description'] ); ?>
+					</span>
+				</label>
+			<?php endforeach; ?>
+		</fieldset>
 		<?php
 	}
 
