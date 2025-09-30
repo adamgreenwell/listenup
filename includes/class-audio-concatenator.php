@@ -290,6 +290,7 @@ class ListenUp_Audio_Concatenator {
 			$debug->info( 'Actual duration based on written data: ' . round( $actual_duration, 2 ) . ' seconds (' . round( $actual_duration / 60, 2 ) . ' minutes)' );
 
 			fclose( $output_handle );
+			// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 
 			// Clean up temp files.
 			$this->cleanup_temp_files( $temp_files );
