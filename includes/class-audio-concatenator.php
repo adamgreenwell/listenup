@@ -12,6 +12,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Audio concatenator class for server-side processing.
+ * 
+ * Note: This class uses direct PHP filesystem functions (fopen, fread, fwrite, fclose, etc.)
+ * for binary audio processing. These operations are necessary for precise audio file manipulation
+ * and cannot be replaced with WP_Filesystem methods due to the binary nature of audio data.
+ * 
+ * While WordPress recommends WP_Filesystem for file operations, binary audio processing requires
+ * fine-grained control over file positioning, chunked reading/writing, and precise header manipulation
+ * that WP_Filesystem's high-level methods cannot provide. The PHPCS directives properly suppress
+ * these warnings with detailed explanations for WordPress Plugin Checker compliance.
  */
 class ListenUp_Audio_Concatenator {
 
