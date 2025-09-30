@@ -63,6 +63,7 @@ class ListenUp_Audio_Concatenator {
 		$debug->info( 'Starting server-side audio concatenation for ' . count( $audio_urls ) . ' files' );
 
 		if ( empty( $audio_urls ) || ! is_array( $audio_urls ) ) {
+			$debug->error( 'No audio URLs provided for concatenation' );
 			return new WP_Error( 'invalid_input', __( 'No audio URLs provided for concatenation.', 'listenup' ) );
 		}
 
