@@ -11,6 +11,89 @@
 	margin: 2rem 0;
 }
 
+/* Library Controls */
+.listenup-library-controls {
+	grid-column: 1 / -1;
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	padding: 1rem;
+	background: #f8f9fa;
+	border-radius: 8px;
+	margin-bottom: 1rem;
+}
+
+/* Autoplay Toggle Wrapper */
+.listenup-autoplay-wrapper {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	cursor: pointer;
+	user-select: none;
+}
+
+/* Hide default checkbox */
+.listenup-autoplay-checkbox {
+	position: absolute;
+	opacity: 0;
+	width: 0;
+	height: 0;
+}
+
+/* Toggle switch track */
+.listenup-autoplay-toggle {
+	position: relative;
+	display: inline-block;
+	width: 44px;
+	height: 24px;
+	background: #cbd5e0;
+	border-radius: 12px;
+	transition: background 0.3s ease;
+	flex-shrink: 0;
+}
+
+/* Toggle switch thumb */
+.listenup-autoplay-toggle::after {
+	content: '';
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 20px;
+	height: 20px;
+	background: #ffffff;
+	border-radius: 50%;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	transition: left 0.3s ease;
+}
+
+/* Checked state - change track color */
+.listenup-autoplay-checkbox:checked + .listenup-autoplay-toggle {
+	background: #3498db;
+}
+
+/* Checked state - move thumb */
+.listenup-autoplay-checkbox:checked + .listenup-autoplay-toggle::after {
+	left: 22px;
+}
+
+/* Label text */
+.listenup-autoplay-label {
+	font-size: 0.938rem;
+	color: #2c3e50;
+	font-weight: 500;
+}
+
+/* Focus state for accessibility */
+.listenup-autoplay-checkbox:focus + .listenup-autoplay-toggle {
+	outline: 2px solid #3498db;
+	outline-offset: 2px;
+}
+
+/* Hover effect */
+.listenup-autoplay-wrapper:hover .listenup-autoplay-toggle {
+	opacity: 0.9;
+}
+
 /* Column Layouts */
 .listenup-library-columns-1 {
 	grid-template-columns: 1fr;
@@ -198,6 +281,22 @@
 	.listenup-library-empty {
 		background: #34495e;
 		color: #95a5a6;
+	}
+
+	.listenup-library-controls {
+		background: #34495e;
+	}
+
+	.listenup-autoplay-label {
+		color: #ecf0f1;
+	}
+
+	.listenup-autoplay-toggle {
+		background: #576574;
+	}
+
+	.listenup-autoplay-checkbox:checked + .listenup-autoplay-toggle {
+		background: #3498db;
 	}
 }
 
