@@ -343,6 +343,197 @@
                 });
             });
         }
+
+        initPreRollManager() {
+            // Tab switching
+            $(document).on('click', '.listenup-preroll-tab', function() {
+                const tab = $(this).data('tab');
+
+                // Update tab buttons
+                $('.listenup-preroll-tab').removeClass('listenup-preroll-tab-active');
+                $(this).addClass('listenup-preroll-tab-active');
+
+                // Update tab content
+                $('.listenup-preroll-tab-content').removeClass('listenup-preroll-tab-active');
+                $(`#listenup-preroll-${tab}-tab`).addClass('listenup-preroll-tab-active');
+            });
+
+            // Character count for pre-roll text
+            $(document).on('input', '#pre_roll_text', function() {
+                const length = $(this).val().length;
+                $('#listenup-preroll-char-count').text(`${length}/500`);
+            });
+
+            // Initialize char count on page load
+            const initialLength = $('#pre_roll_text').val().length;
+            $('#listenup-preroll-char-count').text(`${initialLength}/500`);
+
+            // Upload pre-roll audio
+            $(document).on('click', '#listenup-upload-preroll-btn', this.handleUploadPreRoll.bind(this));
+
+            // Remove pre-roll audio
+            $(document).on('click', '#listenup-remove-preroll-btn', this.handleRemovePreRoll.bind(this));
+
+            // Generate pre-roll audio
+            $(document).on('click', '#listenup-generate-preroll-btn', this.handleGeneratePreRoll.bind(this));
+        }
+
+        handleUploadPreRoll(e) {
+            e.preventDefault();
+
+            // Use WordPress media uploader
+            if (typeof wp !== 'undefined' && wp.media) {
+                const mediaUploader = wp.media({
+                    title: 'Select Pre-roll Audio File',
+                    button: {
+                        text: 'Use this file'
+                    },
+                    library: {
+                        type: ['audio']
+                    },
+                    multiple: false
+                });
+
+                mediaUploader.on('select', () => {
+                    const attachment = mediaUploader.state().get('selection').first().toJSON();
+
+                    // Validate file type
+                    const validTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/mp4', 'audio/m4a'];
+                    if (!validTypes.includes(attachment.mime)) {
+                        alert('Please select a valid audio file (MP3, WAV, OGG, or M4A).');
+                        return;
+                    }
+
+                    // Validate file size (10MB max)
+                    if (attachment.filesize > 10 * 1024 * 1024) {
+                        alert('File is too large. Maximum size is 10MB.');
+                        return;
+                    }
+
+                    // Get the file path from URL
+                    // For WordPress media library files, we'll use the URL and convert it server-side
+                    $('#pre_roll_audio').val(attachment.url);
+
+                    // Show preview
+                    this.updatePreRollPreview(attachment);
+
+                    this.showMessage('Pre-roll audio file selected. Remember to save your settings!', 'success');
+                });
+
+                mediaUploader.open();
+            } else {
+                alert('WordPress media uploader is not available.');
+            }
+        }
+
+        handleRemovePreRoll(e) {
+            e.preventDefault();
+
+            if (!confirm('Are you sure you want to remove the pre-roll audio?')) {
+                return;
+            }
+
+            // Clear the hidden input
+            $('#pre_roll_audio').val('');
+
+            // Remove preview
+            $('#listenup-preroll-preview').remove();
+
+            this.showMessage('Pre-roll audio removed. Remember to save your settings!', 'success');
+        }
+
+        handleGeneratePreRoll(e) {
+            e.preventDefault();
+
+            const $btn = $(e.currentTarget);
+            const $spinner = $('#listenup-generate-preroll-spinner');
+            const $status = $('#listenup-generate-preroll-status');
+            const text = $('#pre_roll_text').val().trim();
+
+            // Validate text
+            if (!text) {
+                $status.html('<p class="description" style="color: #d63638;">Please enter text for the pre-roll.</p>');
+                return;
+            }
+
+            if (text.length > 500) {
+                $status.html('<p class="description" style="color: #d63638;">Text must be 500 characters or less.</p>');
+                return;
+            }
+
+            // Disable button and show spinner
+            $btn.prop('disabled', true);
+            $spinner.addClass('is-active');
+            $status.html('<p class="description">Generating audio with Murf.ai...</p>');
+
+            // Make AJAX request
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'listenup_generate_preroll',
+                    text: text,
+                    nonce: listenupAdmin.nonce
+                },
+                success: (response) => {
+                    if (response.success && response.data.success !== false) {
+                        // Update hidden field with file path
+                        $('#pre_roll_audio').val(response.data.file_path);
+
+                        // Show success message
+                        $status.html(`
+                            <div class="listenup-preroll-preview" style="margin-top: 15px; padding: 15px; background: #f9f9f9; border-left: 4px solid #00a32a;">
+                                <p style="color: #00a32a;"><strong>Pre-roll audio generated successfully!</strong></p>
+                                <p>${response.data.filename}</p>
+                                <audio controls style="max-width: 100%; margin-top: 10px;">
+                                    <source src="${response.data.file_url}" type="audio/mpeg">
+                                </audio>
+                                <p class="description" style="margin-top: 10px;">Remember to save your settings to apply this pre-roll!</p>
+                            </div>
+                        `);
+
+                        this.showMessage('Pre-roll audio generated successfully!', 'success');
+                    } else {
+                        const errorMessage = response.data?.message || 'Unknown error';
+                        $status.html(`<p class="description" style="color: #d63638;">Failed to generate pre-roll: ${errorMessage}</p>`);
+                    }
+                },
+                error: () => {
+                    $status.html('<p class="description" style="color: #d63638;">Network error occurred while generating pre-roll.</p>');
+                },
+                complete: () => {
+                    $btn.prop('disabled', false);
+                    $spinner.removeClass('is-active');
+                }
+            });
+        }
+
+        updatePreRollPreview(attachment) {
+            const previewHtml = `
+                <div id="listenup-preroll-preview" class="listenup-preroll-preview">
+                    <div class="listenup-preroll-info">
+                        <p style="color: #00a32a;">
+                            <strong>Current pre-roll audio:</strong>
+                        </p>
+                        <p>${attachment.filename}</p>
+                        <p class="description">
+                            ${attachment.filesizeHumanReadable} (${attachment.subtype.toUpperCase()})
+                        </p>
+                        <audio controls style="max-width: 100%; margin-top: 10px;">
+                            <source src="${attachment.url}" type="${attachment.mime}">
+                        </audio>
+                        <br>
+                        <button type="button" class="button button-secondary" id="listenup-remove-preroll-btn" style="margin-top: 10px;">
+                            Remove Pre-roll
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Remove existing preview and add new one
+            $('#listenup-preroll-preview').remove();
+            $('.listenup-preroll-upload-section .description').after(previewHtml);
+        }
     }
     
     // Initialize when document is ready
