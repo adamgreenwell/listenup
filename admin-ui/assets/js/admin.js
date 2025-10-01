@@ -31,6 +31,9 @@
             
             // Voice picker functionality
             this.initVoicePicker();
+
+            // Pre-roll functionality
+            this.initPreRollManager();
         }
         
         toggleApiKeyVisibility() {
