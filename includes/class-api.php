@@ -63,11 +63,15 @@ class ListenUp_API {
 
 		if ( empty( $api_key ) ) {
 			/* translators: Error message when API key is missing */
+			$debug = ListenUp_Debug::get_instance();
+			$debug->error( 'API key is not configured for audio generation' );
 			return new WP_Error( 'no_api_key', __( 'Murf.ai API key is not configured.', 'listenup' ) );
 		}
 
 		if ( empty( $text ) ) {
 			/* translators: Error message when no text is provided */
+			$debug = ListenUp_Debug::get_instance();
+			$debug->error( 'No text provided for audio generation', array( 'post_id' => $post_id ) );
 			return new WP_Error( 'empty_text', __( 'No text provided for audio generation.', 'listenup' ) );
 		}
 
@@ -194,6 +198,7 @@ class ListenUp_API {
 		$response_data = json_decode( $response_body, true );
 
 		if ( ! isset( $response_data['audioFile'] ) ) {
+			$debug->error( 'Invalid response from Murf.ai API - missing audioFile', array( 'response_data' => $response_data ) );
 			return new WP_Error( 'invalid_response', __( 'Invalid response from Murf.ai API.', 'listenup' ) );
 		}
 
@@ -261,7 +266,8 @@ class ListenUp_API {
 
 			if ( is_wp_error( $response ) ) {
 				$debug->error( 'Chunk ' . $chunk['chunk_number'] . ' API Request Failed: ' . $response->get_error_message() );
-				return new WP_Error( 'chunk_api_failed', sprintf( __( 'Failed to generate audio for chunk %d: %s', 'listenup' ), $chunk['chunk_number'], $response->get_error_message() ) );
+				/* translators: %1$d is the chunk number, %2$s is the error message */
+				return new WP_Error( 'chunk_api_failed', sprintf( __( 'Failed to generate audio for chunk %1$d: %2$s', 'listenup' ), $chunk['chunk_number'], $response->get_error_message() ) );
 			}
 
 			$response_code = wp_remote_retrieve_response_code( $response );
@@ -271,12 +277,18 @@ class ListenUp_API {
 				$error_data = json_decode( $response_body, true );
 				$error_message = isset( $error_data['message'] ) ? $error_data['message'] : __( 'Unknown API error occurred.', 'listenup' );
 				$debug->error( 'Chunk ' . $chunk['chunk_number'] . ' API Error: ' . $error_message );
-				return new WP_Error( 'chunk_api_error', sprintf( __( 'API error for chunk %d: %s', 'listenup' ), $chunk['chunk_number'], $error_message ) );
+				/* translators: %1$d is the chunk number, %2$s is the error message */
+				return new WP_Error( 'chunk_api_error', sprintf( __( 'API error for chunk %1$d: %2$s', 'listenup' ), $chunk['chunk_number'], $error_message ) );
 			}
 
 			$response_data = json_decode( $response_body, true );
 
 			if ( ! isset( $response_data['audioFile'] ) ) {
+				$debug->error( 'Invalid response from API for chunk - missing audioFile', array( 
+					'chunk_number' => $chunk['chunk_number'],
+					'response_data' => $response_data
+				) );
+				/* translators: %d is the chunk number */
 				return new WP_Error( 'chunk_invalid_response', sprintf( __( 'Invalid response from API for chunk %d.', 'listenup' ), $chunk['chunk_number'] ) );
 			}
 
@@ -348,6 +360,8 @@ class ListenUp_API {
 		$api_key = isset( $options['murf_api_key'] ) ? $options['murf_api_key'] : '';
 
 		if ( empty( $api_key ) ) {
+			$debug = ListenUp_Debug::get_instance();
+			$debug->error( 'API key is not configured for connection test' );
 			return new WP_Error( 'no_api_key', __( 'Murf.ai API key is not configured.', 'listenup' ) );
 		}
 

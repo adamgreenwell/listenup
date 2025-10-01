@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ListenUp
  * Description: Add "read this to me" functionality to your WordPress posts using Murf.ai text-to-speech technology.
- * Version: 1.2.01
+ * Version: 1.3.0
  * Author: Adam Greenwell
  * Author URI: https://adamgreenwell.com
  * License: GPL v2 or later
@@ -22,7 +22,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants.
-define( 'LISTENUP_VERSION', '1.2.01' );
+define( 'LISTENUP_VERSION', '1.3.0' );
 define( 'LISTENUP_PLUGIN_FILE', __FILE__ );
 define( 'LISTENUP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LISTENUP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -128,6 +128,7 @@ class ListenUp {
 		ListenUp_Frontend::get_instance();
 		ListenUp_Meta_Box::get_instance();
 		ListenUp_Shortcode::get_instance();
+		ListenUp_Library_Shortcode::get_instance();
 	}
 
 	/**
@@ -161,8 +162,9 @@ class ListenUp {
 			'auto_placement' => 'none',
 			'placement_position' => 'after',
 			'pre_roll_audio' => '',
+			'download_restriction' => 'allow_all',
 		);
-		
+
 		add_option( 'listenup_options', $default_options );
 	}
 

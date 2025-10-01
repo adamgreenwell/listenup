@@ -49,6 +49,8 @@ class ListenUp_Frontend {
 		add_filter( 'the_content', array( $this, 'maybe_add_audio_player' ) );
 		add_action( 'wp_ajax_listenup_download_wav', array( $this, 'ajax_download_wav' ) );
 		add_action( 'wp_ajax_nopriv_listenup_download_wav', array( $this, 'ajax_download_wav' ) );
+		add_action( 'wp_ajax_listenup_serve_audio', array( $this, 'ajax_serve_audio' ) );
+		add_action( 'wp_ajax_nopriv_listenup_serve_audio', array( $this, 'ajax_serve_audio' ) );
 	}
 
 	/**
@@ -81,6 +83,10 @@ class ListenUp_Frontend {
 			true
 		);
 
+		// Get download restriction setting.
+		$options = get_option( 'listenup_options' );
+		$download_restriction = isset( $options['download_restriction'] ) ? $options['download_restriction'] : 'allow_all';
+
 		// Localize script with AJAX data.
 		wp_localize_script(
 			'listenup-frontend',
@@ -88,6 +94,8 @@ class ListenUp_Frontend {
 			array(
 				'ajaxurl' => admin_url( 'admin-ajax.php' ),
 				'nonce' => wp_create_nonce( 'listenup_download_wav' ),
+				'downloadRestriction' => $download_restriction,
+				'isUserLoggedIn' => is_user_logged_in(),
 			)
 		);
 	}
@@ -185,6 +193,12 @@ class ListenUp_Frontend {
 		} else {
 			$audio_url = $audio_data;
 		}
+
+		// Convert all URLs to secure URLs.
+		$audio_url = $this->get_secure_audio_url( $audio_url );
+		if ( $audio_chunks ) {
+			$audio_chunks = array_map( array( $this, 'get_secure_audio_url' ), $audio_chunks );
+		}
 		
 		ob_start();
 		?>
@@ -268,8 +282,21 @@ class ListenUp_Frontend {
 	 */
 	public function ajax_download_wav() {
 		// Verify nonce for security.
-		if ( ! wp_verify_nonce( $_POST['nonce'] ?? '', 'listenup_download_wav' ) ) {
+		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+		if ( ! wp_verify_nonce( $nonce, 'listenup_download_wav' ) ) {
 			wp_die( 'Security check failed' );
+		}
+
+		// Check download restrictions.
+		$options = get_option( 'listenup_options' );
+		$download_restriction = isset( $options['download_restriction'] ) ? $options['download_restriction'] : 'allow_all';
+
+		if ( 'disable' === $download_restriction ) {
+			wp_die( esc_html__( 'Downloads are currently disabled.', 'listenup' ) );
+		}
+
+		if ( 'logged_in_only' === $download_restriction && ! is_user_logged_in() ) {
+			wp_die( esc_html__( 'You must be logged in to download audio files.', 'listenup' ) );
 		}
 
 		$post_id = intval( $_POST['post_id'] ?? 0 );
@@ -285,24 +312,20 @@ class ListenUp_Frontend {
 			wp_die( 'No audio available for this post' );
 		}
 
-		// Get audio chunks.
-		$audio_chunks = null;
-		if ( is_array( $cached_audio ) && isset( $cached_audio['chunks'] ) ) {
-			$audio_chunks = $cached_audio['chunks'];
-		} elseif ( is_array( $cached_audio ) ) {
-			$audio_chunks = $cached_audio;
-		}
+		// Get direct audio URLs (not secure proxy URLs).
+		// The concatenator needs direct URLs to access files from the filesystem.
+		$audio_urls = $this->get_direct_audio_urls( $cached_audio );
 
-		if ( ! $audio_chunks || count( $audio_chunks ) <= 1 ) {
+		if ( empty( $audio_urls ) || count( $audio_urls ) <= 1 ) {
 			wp_die( 'No chunked audio available for concatenation' );
 		}
 
 		// Use server-side concatenator to create WAV file.
 		$concatenator = ListenUp_Audio_Concatenator::get_instance();
-		$result = $concatenator->get_concatenated_audio_url( $audio_chunks, $post_id, 'wav' );
+		$result = $concatenator->get_concatenated_audio_url( $audio_urls, $post_id, 'wav' );
 
 		if ( is_wp_error( $result ) ) {
-			wp_die( 'Failed to concatenate audio: ' . $result->get_error_message() );
+			wp_die( 'Failed to concatenate audio: ' . esc_html( $result->get_error_message() ) );
 		}
 
 		// Verify the file exists and get its size.
@@ -316,13 +339,13 @@ class ListenUp_Frontend {
 		}
 
 		// Set headers for file download.
-		$filename = 'listenup-audio-' . $post_id . '-' . date( 'Y-m-d-H-i-s' ) . '.wav';
-		
+		$filename = 'listenup-audio-' . $post_id . '-' . gmdate( 'Y-m-d-H-i-s' ) . '.wav';
+
 		// Clear any previous output.
 		if ( ob_get_level() ) {
 			ob_end_clean();
 		}
-		
+
 		header( 'Content-Type: audio/wav' );
 		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
 		header( 'Content-Length: ' . $file_size );
@@ -330,18 +353,272 @@ class ListenUp_Frontend {
 		header( 'Expires: Sat, 26 Jul 1997 05:00:00 GMT' );
 		header( 'Accept-Ranges: bytes' );
 
-		// Output the file in chunks to avoid memory issues.
+		// Stream the file directly to avoid memory issues with large files.
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for streaming large binary files
 		$handle = fopen( $result['file_path'], 'rb' );
-		if ( $handle ) {
-			while ( ! feof( $handle ) ) {
-				echo fread( $handle, 8192 );
-				flush();
-			}
-			fclose( $handle );
-		} else {
+		if ( false === $handle ) {
 			wp_die( 'Could not read concatenated audio file' );
 		}
-		
+
+		// Output file in 64KB chunks to avoid memory issues.
+		while ( ! feof( $handle ) ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Binary file output
+			echo fread( $handle, 65536 );
+			flush();
+		}
+
+		fclose( $handle );
+		// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+
 		exit;
+	}
+
+	/**
+	 * AJAX handler for secure audio file serving.
+	 * Serves audio files through PHP with permission checks and range request support.
+	 */
+	public function ajax_serve_audio() {
+		// Get and validate parameters.
+		$file = isset( $_GET['file'] ) ? sanitize_text_field( wp_unslash( $_GET['file'] ) ) : '';
+		$nonce = isset( $_GET['nonce'] ) ? sanitize_text_field( wp_unslash( $_GET['nonce'] ) ) : '';
+
+		if ( empty( $file ) || empty( $nonce ) ) {
+			status_header( 400 );
+			wp_die( 'Invalid request' );
+		}
+
+		// Verify nonce.
+		if ( ! wp_verify_nonce( $nonce, 'listenup_serve_audio_' . $file ) ) {
+			status_header( 403 );
+			wp_die( 'Security check failed' );
+		}
+
+		// Check download restrictions (for access control).
+		$options = get_option( 'listenup_options' );
+		$download_restriction = isset( $options['download_restriction'] ) ? $options['download_restriction'] : 'allow_all';
+
+		// Note: We allow playback even with restrictions, only downloads are blocked.
+
+		/*
+		if ( 'disable' === $download_restriction ) {
+			status_header( 403 );
+			wp_die( esc_html__( 'Audio access is currently disabled.', 'listenup' ) );
+		}
+
+		if ( 'logged_in_only' === $download_restriction && ! is_user_logged_in() ) {
+			status_header( 403 );
+			wp_die( esc_html__( 'You must be logged in to access audio files.', 'listenup' ) );
+		}
+		*/
+
+		// Construct file path.
+		$upload_dir = wp_upload_dir();
+		$cache_dir = $upload_dir['basedir'] . '/listenup-audio';
+		$file_path = $cache_dir . '/' . basename( $file );
+
+		// Validate file exists and is within the cache directory (security check).
+		if ( ! file_exists( $file_path ) ) {
+			status_header( 404 );
+			wp_die( 'File not found' );
+		}
+
+		// Ensure file is within our cache directory (prevent directory traversal).
+		$real_cache_dir = realpath( $cache_dir );
+		$real_file_path = realpath( $file_path );
+
+		if ( false === $real_file_path || 0 !== strpos( $real_file_path, $real_cache_dir ) ) {
+			status_header( 403 );
+			wp_die( 'Access denied' );
+		}
+
+		// Get file info.
+		$file_size = filesize( $file_path );
+		$mime_type = $this->get_mime_type( $file_path );
+
+		// Handle range requests for seeking support.
+		$range = isset( $_SERVER['HTTP_RANGE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_RANGE'] ) ) : '';
+
+		if ( ! empty( $range ) ) {
+			$this->serve_file_with_range( $file_path, $file_size, $mime_type, $range );
+		} else {
+			$this->serve_file_complete( $file_path, $file_size, $mime_type );
+		}
+
+		exit;
+	}
+
+	/**
+	 * Serve complete file without range support.
+	 *
+	 * @param string $file_path Path to file.
+	 * @param int    $file_size File size in bytes.
+	 * @param string $mime_type MIME type.
+	 */
+	private function serve_file_complete( $file_path, $file_size, $mime_type ) {
+		// Clear any previous output.
+		if ( ob_get_level() ) {
+			ob_end_clean();
+		}
+
+		// Set headers.
+		status_header( 200 );
+		header( 'Content-Type: ' . $mime_type );
+		header( 'Content-Length: ' . $file_size );
+		header( 'Accept-Ranges: bytes' );
+		header( 'Cache-Control: public, max-age=31536000' ); // Cache for 1 year.
+		header( 'Expires: ' . gmdate( 'D, d M Y H:i:s', time() + 31536000 ) . ' GMT' );
+
+		// Output file in chunks to avoid memory issues.
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for streaming large binary files
+		$handle = fopen( $file_path, 'rb' );
+		if ( false === $handle ) {
+			wp_die( 'Could not read file' );
+		}
+
+		while ( ! feof( $handle ) ) {
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Binary file output
+			echo fread( $handle, 8192 );
+			flush();
+		}
+
+		fclose( $handle );
+		// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+	}
+
+	/**
+	 * Serve file with HTTP range support for seeking.
+	 *
+	 * @param string $file_path Path to file.
+	 * @param int    $file_size File size in bytes.
+	 * @param string $mime_type MIME type.
+	 * @param string $range Range header value.
+	 */
+	private function serve_file_with_range( $file_path, $file_size, $mime_type, $range ) {
+		// Parse range header.
+		$range = str_replace( 'bytes=', '', $range );
+		$range_parts = explode( '-', $range );
+		$start = intval( $range_parts[0] );
+		$end = isset( $range_parts[1] ) && ! empty( $range_parts[1] ) ? intval( $range_parts[1] ) : $file_size - 1;
+
+		// Validate range.
+		if ( $start > $end || $start < 0 || $end >= $file_size ) {
+			status_header( 416 ); // Range Not Satisfiable.
+			header( 'Content-Range: bytes */' . $file_size );
+			exit;
+		}
+
+		$length = $end - $start + 1;
+
+		// Clear any previous output.
+		if ( ob_get_level() ) {
+			ob_end_clean();
+		}
+
+		// Set headers for partial content.
+		status_header( 206 ); // Partial Content.
+		header( 'Content-Type: ' . $mime_type );
+		header( 'Content-Length: ' . $length );
+		header( 'Content-Range: bytes ' . $start . '-' . $end . '/' . $file_size );
+		header( 'Accept-Ranges: bytes' );
+		header( 'Cache-Control: public, max-age=31536000' );
+		header( 'Expires: ' . gmdate( 'D, d M Y H:i:s', time() + 31536000 ) . ' GMT' );
+
+		// Output file range in chunks.
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for streaming large binary files with range support
+		$handle = fopen( $file_path, 'rb' );
+		if ( false === $handle ) {
+			wp_die( 'Could not read file' );
+		}
+
+		// Seek to start position.
+		fseek( $handle, $start );
+
+		// Output in chunks.
+		$remaining = $length;
+		while ( $remaining > 0 && ! feof( $handle ) ) {
+			$chunk_size = min( 8192, $remaining );
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Binary file output
+			echo fread( $handle, $chunk_size );
+			flush();
+			$remaining -= $chunk_size;
+		}
+
+		fclose( $handle );
+		// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
+	}
+
+	/**
+	 * Get MIME type for file.
+	 *
+	 * @param string $file_path Path to file.
+	 * @return string MIME type.
+	 */
+	private function get_mime_type( $file_path ) {
+		$extension = strtolower( pathinfo( $file_path, PATHINFO_EXTENSION ) );
+
+		$mime_types = array(
+			'mp3' => 'audio/mpeg',
+			'wav' => 'audio/wav',
+			'ogg' => 'audio/ogg',
+			'm4a' => 'audio/mp4',
+		);
+
+		return isset( $mime_types[ $extension ] ) ? $mime_types[ $extension ] : 'application/octet-stream';
+	}
+
+	/**
+	 * Generate secure audio URL that goes through our proxy.
+	 *
+	 * @param string $file_url Original file URL.
+	 * @return string Secure URL.
+	 */
+	public function get_secure_audio_url( $file_url ) {
+		// If already a secure URL, return as-is.
+		if ( strpos( $file_url, 'admin-ajax.php' ) !== false && strpos( $file_url, 'listenup_serve_audio' ) !== false ) {
+			return $file_url;
+		}
+
+		// Extract filename from URL.
+		$parsed_url = wp_parse_url( $file_url );
+		$file_path = isset( $parsed_url['path'] ) ? $parsed_url['path'] : '';
+		$filename = basename( $file_path );
+
+		// Generate nonce for this specific file.
+		$nonce = wp_create_nonce( 'listenup_serve_audio_' . $filename );
+
+		// Build secure URL.
+		$secure_url = add_query_arg(
+			array(
+				'action' => 'listenup_serve_audio',
+				'file' => $filename,
+				'nonce' => $nonce,
+			),
+			admin_url( 'admin-ajax.php' )
+		);
+
+		return $secure_url;
+	}
+
+	/**
+	 * Get original (direct) audio URLs from cached data.
+	 * Used for server-side operations like concatenation.
+	 *
+	 * @param array $cached_audio Cached audio data.
+	 * @return array Array of direct URLs.
+	 */
+	private function get_direct_audio_urls( $cached_audio ) {
+		$urls = array();
+
+		if ( is_array( $cached_audio ) && isset( $cached_audio['chunks'] ) ) {
+			$urls = $cached_audio['chunks'];
+		} elseif ( is_array( $cached_audio ) && isset( $cached_audio[0] ) ) {
+			$urls = $cached_audio;
+		} elseif ( is_array( $cached_audio ) && isset( $cached_audio['url'] ) ) {
+			$urls = array( $cached_audio['url'] );
+		} elseif ( is_string( $cached_audio ) ) {
+			$urls = array( $cached_audio );
+		}
+
+		return $urls;
 	}
 }

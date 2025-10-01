@@ -75,8 +75,11 @@ class ListenUp_Debug {
 		$context_str = ! empty( $context ) ? ' | Context: ' . wp_json_encode( $context ) : '';
 		$log_entry = "[ListenUp] [{$timestamp}] [{$level}] {$message}{$context_str}";
 
-		// Use WordPress error_log function to write to debug.log
-		error_log( $log_entry );
+		// Use WordPress debug logging system
+		if ( defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug logging for plugin troubleshooting
+			error_log( $log_entry );
+		}
 	}
 
 	/**

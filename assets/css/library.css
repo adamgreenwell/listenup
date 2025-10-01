@@ -1,0 +1,320 @@
+/**
+ * ListenUp Library Shortcode Styles
+ *
+ * @package ListenUp
+ */
+
+/* Library Container */
+.listenup-library {
+	display: grid;
+	gap: 2rem;
+	margin: 2rem 0;
+}
+
+/* Library Controls */
+.listenup-library-controls {
+	grid-column: 1 / -1;
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	padding: 1rem;
+	background: #f8f9fa;
+	border-radius: 8px;
+	margin-bottom: 1rem;
+}
+
+/* Autoplay Toggle Wrapper */
+.listenup-autoplay-wrapper {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	cursor: pointer;
+	user-select: none;
+}
+
+/* Hide default checkbox */
+.listenup-autoplay-checkbox {
+	position: absolute;
+	opacity: 0;
+	width: 0;
+	height: 0;
+}
+
+/* Toggle switch track */
+.listenup-autoplay-toggle {
+	position: relative;
+	display: inline-block;
+	width: 44px;
+	height: 24px;
+	background: #cbd5e0;
+	border-radius: 12px;
+	transition: background 0.3s ease;
+	flex-shrink: 0;
+}
+
+/* Toggle switch thumb */
+.listenup-autoplay-toggle::after {
+	content: '';
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 20px;
+	height: 20px;
+	background: #ffffff;
+	border-radius: 50%;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	transition: left 0.3s ease;
+}
+
+/* Checked state - change track color */
+.listenup-autoplay-checkbox:checked + .listenup-autoplay-toggle {
+	background: #3498db;
+}
+
+/* Checked state - move thumb */
+.listenup-autoplay-checkbox:checked + .listenup-autoplay-toggle::after {
+	left: 22px;
+}
+
+/* Label text */
+.listenup-autoplay-label {
+	font-size: 0.938rem;
+	color: #2c3e50;
+	font-weight: 500;
+}
+
+/* Focus state for accessibility */
+.listenup-autoplay-checkbox:focus + .listenup-autoplay-toggle {
+	outline: 2px solid #3498db;
+	outline-offset: 2px;
+}
+
+/* Hover effect */
+.listenup-autoplay-wrapper:hover .listenup-autoplay-toggle {
+	opacity: 0.9;
+}
+
+/* Column Layouts */
+.listenup-library-columns-1 {
+	grid-template-columns: 1fr;
+}
+
+.listenup-library-columns-2 {
+	grid-template-columns: repeat(2, 1fr);
+}
+
+.listenup-library-columns-3 {
+	grid-template-columns: repeat(3, 1fr);
+}
+
+/* Responsive breakpoints */
+@media (max-width: 768px) {
+	.listenup-library-columns-2,
+	.listenup-library-columns-3 {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+	.listenup-library-columns-3 {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+/* Library Item */
+.listenup-library-item {
+	background: #ffffff;
+	border: 1px solid #e0e0e0;
+	border-radius: 8px;
+	overflow: hidden;
+	transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.listenup-library-item:hover {
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	transform: translateY(-2px);
+}
+
+/* Thumbnail */
+.listenup-library-thumbnail {
+	position: relative;
+	overflow: hidden;
+	background: #f5f5f5;
+}
+
+.listenup-library-thumbnail a {
+	display: block;
+	line-height: 0;
+}
+
+.listenup-library-thumbnail img {
+	width: 100%;
+	height: auto;
+	display: block;
+	transition: transform 0.3s ease;
+}
+
+.listenup-library-thumbnail:hover img {
+	transform: scale(1.05);
+}
+
+/* Content */
+.listenup-library-content {
+	padding: 1.5rem;
+}
+
+/* Title */
+.listenup-library-title {
+	margin: 0 0 0.5rem;
+	font-size: 1.25rem;
+	font-weight: 600;
+	line-height: 1.4;
+}
+
+.listenup-library-title a {
+	color: #2c3e50;
+	text-decoration: none;
+	transition: color 0.3s ease;
+}
+
+.listenup-library-title a:hover {
+	color: #3498db;
+}
+
+/* Date */
+.listenup-library-date {
+	display: block;
+	color: #7f8c8d;
+	font-size: 0.875rem;
+	margin-bottom: 0.75rem;
+}
+
+/* Excerpt */
+.listenup-library-excerpt {
+	color: #5a6c7d;
+	font-size: 0.938rem;
+	line-height: 1.6;
+	margin: 1rem 0;
+}
+
+.listenup-library-excerpt p:last-child {
+	margin-bottom: 0;
+}
+
+/* Actions */
+.listenup-library-actions {
+	margin-top: 1rem;
+}
+
+.listenup-library-listen-link {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.625rem 1.25rem;
+	background: #3498db;
+	color: #ffffff;
+	text-decoration: none;
+	border-radius: 4px;
+	font-size: 0.938rem;
+	font-weight: 500;
+	transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.listenup-library-listen-link:hover {
+	background: #2980b9;
+	transform: translateX(2px);
+}
+
+.listenup-library-listen-link svg {
+	width: 14px;
+	height: 14px;
+	flex-shrink: 0;
+}
+
+/* Inline Player */
+.listenup-library-player {
+	margin-top: 1rem;
+}
+
+.listenup-library-player .listenup-audio-player {
+	margin: 0;
+}
+
+/* Empty State */
+.listenup-library-empty {
+	text-align: center;
+	padding: 3rem 1rem;
+	color: #7f8c8d;
+	font-size: 1rem;
+	background: #f8f9fa;
+	border-radius: 8px;
+	margin: 2rem 0;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+	.listenup-library-item {
+		background: #2c3e50;
+		border-color: #34495e;
+	}
+
+	.listenup-library-title a {
+		color: #ecf0f1;
+	}
+
+	.listenup-library-title a:hover {
+		color: #3498db;
+	}
+
+	.listenup-library-date {
+		color: #95a5a6;
+	}
+
+	.listenup-library-excerpt {
+		color: #bdc3c7;
+	}
+
+	.listenup-library-thumbnail {
+		background: #34495e;
+	}
+
+	.listenup-library-empty {
+		background: #34495e;
+		color: #95a5a6;
+	}
+
+	.listenup-library-controls {
+		background: #34495e;
+	}
+
+	.listenup-autoplay-label {
+		color: #ecf0f1;
+	}
+
+	.listenup-autoplay-toggle {
+		background: #576574;
+	}
+
+	.listenup-autoplay-checkbox:checked + .listenup-autoplay-toggle {
+		background: #3498db;
+	}
+}
+
+/* Accessibility */
+.listenup-library-listen-link:focus {
+	outline: 2px solid #3498db;
+	outline-offset: 2px;
+}
+
+/* Print Styles */
+@media print {
+	.listenup-library-player,
+	.listenup-library-actions {
+		display: none;
+	}
+
+	.listenup-library-item {
+		break-inside: avoid;
+		page-break-inside: avoid;
+	}
+}

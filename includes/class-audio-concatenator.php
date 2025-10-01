@@ -12,6 +12,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 /**
  * Audio concatenator class for server-side processing.
+ * 
+ * Note: This class uses direct PHP filesystem functions (fopen, fread, fwrite, fclose, etc.)
+ * for binary audio processing. These operations are necessary for precise audio file manipulation
+ * and cannot be replaced with WP_Filesystem methods due to the binary nature of audio data.
+ * 
+ * While WordPress recommends WP_Filesystem for file operations, binary audio processing requires
+ * fine-grained control over file positioning, chunked reading/writing, and precise header manipulation
+ * that WP_Filesystem's high-level methods cannot provide. The PHPCS directives properly suppress
+ * these warnings with detailed explanations for WordPress Plugin Checker compliance.
  */
 class ListenUp_Audio_Concatenator {
 
@@ -54,6 +63,7 @@ class ListenUp_Audio_Concatenator {
 		$debug->info( 'Starting server-side audio concatenation for ' . count( $audio_urls ) . ' files' );
 
 		if ( empty( $audio_urls ) || ! is_array( $audio_urls ) ) {
+			$debug->error( 'No audio URLs provided for concatenation' );
 			return new WP_Error( 'invalid_input', __( 'No audio URLs provided for concatenation.', 'listenup' ) );
 		}
 
@@ -73,7 +83,7 @@ class ListenUp_Audio_Concatenator {
 			// Check if the cached file is corrupted (too small).
 			if ( $file_size < 1000 ) { // Less than 1KB is likely corrupted.
 				$debug->warning( 'Cached file appears corrupted (size: ' . $file_size . ' bytes), regenerating...' );
-				unlink( $cache_file );
+				wp_delete_file( $cache_file );
 			} else {
 				return array(
 					'success' => true,
@@ -108,7 +118,7 @@ class ListenUp_Audio_Concatenator {
 
 		if ( $final_size < 1000 ) {
 			$debug->error( 'Concatenated file is too small (size: ' . $final_size . ' bytes), likely corrupted' );
-			unlink( $cache_file );
+			wp_delete_file( $cache_file );
 			return new WP_Error( 'corrupted_file', __( 'Concatenated audio file is corrupted.', 'listenup' ) );
 		}
 
@@ -128,7 +138,7 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $format Audio format ('mp3' or 'wav').
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	private function concatenate_audio_files( $audio_urls, $output_path, $format = 'mp3' ) {
+	private function concatenate_audio_files( array $audio_urls, string $output_path, string $format = 'mp3' ) {
 		$debug = ListenUp_Debug::get_instance();
 		
 		// Check the actual file format of the first file to determine input format.
@@ -159,11 +169,18 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $output_path Output WAV file path.
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	private function concatenate_wav_files_reconstructed( $audio_urls, $output_path ) {
+	private function concatenate_wav_files_reconstructed( array $audio_urls, string $output_path ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Reconstructing WAV file from scratch to avoid macOS metadata issues' );
+		
+		// Initialize WordPress filesystem.
+		if ( ! WP_Filesystem() ) {
+			return new WP_Error( 'filesystem_init_failed', __( 'Could not initialize WordPress filesystem.', 'listenup' ) );
+		}
+		global $wp_filesystem;
 
 		// Increase execution time limit for large files.
+		// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for large file processing
 		set_time_limit( 300 ); // 5 minutes
 
 		$temp_files = array();
@@ -202,7 +219,7 @@ class ListenUp_Audio_Concatenator {
 			$debug->info( 'Using format: ' . $sample_rate . ' Hz, ' . $channels . ' channels, ' . $bits_per_sample . ' bits' );
 
 			// Calculate total data size by summing all files.
-			$total_data_size = 0;
+			$total_data_size = 0.0;
 			foreach ( $temp_files as $index => $temp_file ) {
 				$file_size = filesize( $temp_file );
 				if ( false !== $file_size ) {
@@ -217,10 +234,13 @@ class ListenUp_Audio_Concatenator {
 			
 			// Calculate expected duration based on format.
 			$bytes_per_second = $sample_rate * $channels * ( $bits_per_sample / 8 );
-			$expected_duration = $total_data_size / $bytes_per_second;
+			$expected_duration = (float) ( $total_data_size / $bytes_per_second );
 			$debug->info( 'Expected duration: ' . round( $expected_duration, 2 ) . ' seconds (' . round( $expected_duration / 60, 2 ) . ' minutes)' );
 
-			// Create new WAV file with proper headers.
+			// Create new WAV file with proper headers using WP_Filesystem for binary data.
+			// Note: For precise binary audio processing, we need to use direct file operations
+			// as WP_Filesystem doesn't support the fine-grained control needed for audio concatenation.
+			// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for binary audio processing with precise control
 			$output_handle = fopen( $output_path, 'wb' );
 			if ( ! $output_handle ) {
 				$this->cleanup_temp_files( $temp_files );
@@ -270,6 +290,7 @@ class ListenUp_Audio_Concatenator {
 			$debug->info( 'Actual duration based on written data: ' . round( $actual_duration, 2 ) . ' seconds (' . round( $actual_duration / 60, 2 ) . ' minutes)' );
 
 			fclose( $output_handle );
+			// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 
 			// Clean up temp files.
 			$this->cleanup_temp_files( $temp_files );
@@ -291,11 +312,14 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $output_path Output WAV file path.
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	private function concatenate_wav_files_binary( $audio_urls, $output_path ) {
+	private function concatenate_wav_files_binary( array $audio_urls, string $output_path ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Using binary concatenation for WAV files (fallback method)' );
+		
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for binary audio processing
 
 		// Increase execution time limit for large files.
+		// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for large file processing
 		set_time_limit( 300 ); // 5 minutes
 
 		$temp_files = array();
@@ -378,6 +402,7 @@ class ListenUp_Audio_Concatenator {
 			return true;
 
 		} catch ( Exception $e ) {
+			// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 			$this->cleanup_temp_files( $temp_files );
 			return new WP_Error( 'concatenation_failed', $e->getMessage() );
 		}
@@ -389,9 +414,11 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $file_path Path to the WAV file.
 	 * @return bool True on success, false on failure.
 	 */
-	private function fix_wav_metadata( $file_path ) {
+	private function fix_wav_metadata( string $file_path ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Fixing WAV file metadata for correct duration' );
+		
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for binary audio processing
 
 		$handle = fopen( $file_path, 'r+b' );
 		if ( ! $handle ) {
@@ -454,6 +481,7 @@ class ListenUp_Audio_Concatenator {
 		fclose( $handle );
 
 		$debug->info( 'Updated WAV metadata: file size=' . $total_file_size . ', data size=' . $data_size );
+		// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 		return true;
 	}
 
@@ -465,11 +493,14 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $output_path Output WAV file path.
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	private function concatenate_mp3_to_wav_working( $audio_urls, $output_path ) {
+	private function concatenate_mp3_to_wav_working( array $audio_urls, string $output_path ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Creating proper WAV file with PCM audio data' );
+		
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for binary audio processing
 
 		// Increase execution time limit for large files.
+		// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for large file processing
 		set_time_limit( 300 ); // 5 minutes
 		$debug->info( 'Set execution time limit to 300 seconds' );
 
@@ -593,6 +624,7 @@ class ListenUp_Audio_Concatenator {
 			return true;
 
 		} catch ( Exception $e ) {
+			// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 			$this->cleanup_temp_files( $temp_files );
 			return new WP_Error( 'concatenation_failed', $e->getMessage() );
 		}
@@ -606,11 +638,14 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $output_path Output file path.
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	private function concatenate_mp3_files_simple( $audio_urls, $output_path ) {
+	private function concatenate_mp3_files_simple( array $audio_urls, string $output_path ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Simple MP3 binary concatenation' );
+		
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for binary audio processing
 
 		// Increase execution time limit for large files.
+		// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for large file processing
 		set_time_limit( 300 ); // 5 minutes
 		$debug->info( 'Set execution time limit to 300 seconds' );
 
@@ -684,6 +719,7 @@ class ListenUp_Audio_Concatenator {
 			return true;
 
 		} catch ( Exception $e ) {
+			// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 			$this->cleanup_temp_files( $temp_files );
 			return new WP_Error( 'concatenation_failed', $e->getMessage() );
 		}
@@ -697,11 +733,14 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $output_path Output WAV file path.
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	private function concatenate_mp3_to_wav_proper( $audio_urls, $output_path ) {
+	private function concatenate_mp3_to_wav_proper( array $audio_urls, string $output_path ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Properly concatenating MP3 files to WAV format' );
+		
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for binary audio processing
 
 		// Increase execution time limit for large files.
+		// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for large file processing
 		set_time_limit( 300 ); // 5 minutes
 		$debug->info( 'Set execution time limit to 300 seconds' );
 
@@ -809,6 +848,7 @@ class ListenUp_Audio_Concatenator {
 			return true;
 
 		} catch ( Exception $e ) {
+			// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 			$this->cleanup_temp_files( $temp_files );
 			return new WP_Error( 'concatenation_failed', $e->getMessage() );
 		}
@@ -821,11 +861,14 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $output_path Output WAV file path.
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	private function concatenate_mp3_to_wav( $audio_urls, $output_path ) {
+	private function concatenate_mp3_to_wav( array $audio_urls, string $output_path ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Concatenating MP3 files and converting to WAV format' );
+		
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for binary audio processing
 
 		// Increase execution time limit for large files.
+		// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- Required for large file processing
 		set_time_limit( 300 ); // 5 minutes
 		$debug->info( 'Set execution time limit to 300 seconds' );
 
@@ -933,6 +976,7 @@ class ListenUp_Audio_Concatenator {
 			return true;
 
 		} catch ( Exception $e ) {
+			// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 			$this->cleanup_temp_files( $temp_files );
 			return new WP_Error( 'concatenation_failed', $e->getMessage() );
 		}
@@ -945,7 +989,7 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $output_path Output file path.
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
-	private function concatenate_mp3_files( $audio_urls, $output_path ) {
+	private function concatenate_mp3_files( array $audio_urls, string $output_path ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Concatenating MP3 files using binary concatenation with metadata correction' );
 
@@ -1012,7 +1056,7 @@ class ListenUp_Audio_Concatenator {
 	 * @param int    $index File index for naming.
 	 * @return string|WP_Error Temporary file path or error.
 	 */
-	private function download_audio_file( $url, $index ) {
+	private function download_audio_file( string $url, int $index ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Processing audio file ' . ( $index + 1 ) . ': ' . $url );
 
@@ -1021,7 +1065,8 @@ class ListenUp_Audio_Concatenator {
 		$upload_dir = wp_upload_dir();
 		
 		// If it's a local URL, try to get the file path directly.
-		if ( isset( $parsed_url['host'] ) && ( 'localhost' === $parsed_url['host'] || '127.0.0.1' === $parsed_url['host'] || strpos( $parsed_url['host'], $_SERVER['HTTP_HOST'] ) !== false ) ) {
+		$http_host = isset( $_SERVER['HTTP_HOST'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) : '';
+		if ( isset( $parsed_url['host'] ) && ( 'localhost' === $parsed_url['host'] || '127.0.0.1' === $parsed_url['host'] || strpos( $parsed_url['host'], $http_host ) !== false ) ) {
 			$debug->info( 'Detected local file URL, converting to file path' );
 			
 			// Extract the file path from the URL.
@@ -1092,7 +1137,8 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $file_path Path to MP3 file.
 	 * @return array|WP_Error Metadata array or error.
 	 */
-	private function analyze_mp3_metadata( $file_path ) {
+	private function analyze_mp3_metadata( string $file_path ) {
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for binary audio processing
 		$handle = fopen( $file_path, 'rb' );
 		if ( ! $handle ) {
 			return new WP_Error( 'file_open_failed', __( 'Could not open MP3 file for analysis.', 'listenup' ) );
@@ -1170,6 +1216,7 @@ class ListenUp_Audio_Concatenator {
 		$channels = ( 3 === $channel_mode ) ? 1 : 2; // Mono or Stereo
 
 		fclose( $handle );
+		// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 
 		return array(
 			'sample_rate' => $sample_rate,
@@ -1184,7 +1231,8 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $file_path Path to MP3 file.
 	 * @return float|WP_Error Duration in seconds or error.
 	 */
-	private function get_mp3_duration( $file_path ) {
+	private function get_mp3_duration( string $file_path ) {
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for binary audio processing
 		$file_size = filesize( $file_path );
 		if ( false === $file_size ) {
 			return new WP_Error( 'file_size_failed', __( 'Could not get file size.', 'listenup' ) );
@@ -1296,7 +1344,7 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $output_path Output file path.
 	 * @return bool|WP_Error True on success, error on failure.
 	 */
-	private function binary_concatenate_mp3_files( $temp_files, $output_path ) {
+	private function binary_concatenate_mp3_files( array $temp_files, string $output_path ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Starting binary MP3 concatenation' );
 
@@ -1313,7 +1361,7 @@ class ListenUp_Audio_Concatenator {
 			$input_handle = fopen( $temp_file, 'rb' );
 			if ( ! $input_handle ) {
 				fclose( $output_handle );
-				return new WP_Error( 'input_open_failed', __( 'Could not open input file: ' . basename( $temp_file ), 'listenup' ) );
+				return new WP_Error( 'input_open_failed', sprintf( __( 'Could not open input file: %s', 'listenup' ), basename( $temp_file ) ) );
 			}
 
 			// Copy file content.
@@ -1355,7 +1403,7 @@ class ListenUp_Audio_Concatenator {
 	 * @param int    $bitrate Bitrate.
 	 * @return void
 	 */
-	private function fix_mp3_metadata( $file_path, $duration, $sample_rate, $channels, $bitrate ) {
+	private function fix_mp3_metadata( string $file_path, float $duration, int $sample_rate, int $channels, int $bitrate ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Fixing MP3 metadata for duration: ' . $duration . ' seconds' );
 
@@ -1398,7 +1446,7 @@ class ListenUp_Audio_Concatenator {
 	 * @param float $duration Duration in seconds.
 	 * @return string|false ID3v2 tag binary data or false on failure.
 	 */
-	private function create_id3v2_tag( $metadata, $duration ) {
+	private function create_id3v2_tag( array $metadata, float $duration ) {
 		$debug = ListenUp_Debug::get_instance();
 		
 		try {
@@ -1462,7 +1510,7 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $output_path Output file path.
 	 * @return bool|WP_Error True on success, error on failure.
 	 */
-	private function concatenate_wav_files( $audio_urls, $output_path ) {
+	private function concatenate_wav_files( array $audio_urls, string $output_path ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Concatenating WAV files with proper header reconstruction' );
 
@@ -1585,7 +1633,7 @@ class ListenUp_Audio_Concatenator {
 	 * @param string $file_path Path to WAV file.
 	 * @return array|WP_Error Header information or error.
 	 */
-	private function analyze_wav_header( $file_path ) {
+	private function analyze_wav_header( string $file_path ) {
 		$handle = fopen( $file_path, 'rb' );
 		if ( ! $handle ) {
 			return new WP_Error( 'file_open_failed', __( 'Could not open WAV file for analysis.', 'listenup' ) );
@@ -1685,12 +1733,13 @@ class ListenUp_Audio_Concatenator {
 	 * @param int      $bits_per_sample Bits per sample.
 	 * @return void
 	 */
-	private function write_wav_header( $handle, $data_size, $sample_rate, $channels, $bits_per_sample ) {
+	private function write_wav_header( $handle, int $data_size, int $sample_rate, int $channels, int $bits_per_sample ) {
 		$byte_rate = $sample_rate * $channels * ( $bits_per_sample / 8 );
 		$block_align = $channels * ( $bits_per_sample / 8 );
 		$file_size = 36 + $data_size;
 
 		// RIFF header.
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fwrite -- Required for precise binary audio header writing
 		fwrite( $handle, 'RIFF' );
 		fwrite( $handle, pack( 'V', $file_size ) );
 		fwrite( $handle, 'WAVE' );
@@ -1708,6 +1757,7 @@ class ListenUp_Audio_Concatenator {
 		// Data chunk.
 		fwrite( $handle, 'data' );
 		fwrite( $handle, pack( 'V', $data_size ) ); // Data size.
+		// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fwrite
 	}
 
 	/**
@@ -1717,10 +1767,11 @@ class ListenUp_Audio_Concatenator {
 	 * @param int    $data_size Actual data size in bytes.
 	 * @return void
 	 */
-	private function update_wav_header_data_size( $file_path, $data_size ) {
+	private function update_wav_header_data_size( string $file_path, int $data_size ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Updating WAV header with data size: ' . $data_size . ' bytes' );
 
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for precise binary audio header updates
 		$handle = fopen( $file_path, 'r+b' );
 		if ( ! $handle ) {
 			$debug->error( 'Could not open file for header update: ' . $file_path );
@@ -1737,6 +1788,7 @@ class ListenUp_Audio_Concatenator {
 		fwrite( $handle, pack( 'V', $data_size ) );
 
 		fclose( $handle );
+		// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fwrite,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 		$debug->info( 'Updated WAV header successfully' );
 	}
 
@@ -1746,7 +1798,7 @@ class ListenUp_Audio_Concatenator {
 	 * @param int $post_id Post ID.
 	 * @return bool Success status.
 	 */
-	public function clear_concatenated_cache( $post_id ) {
+	public function clear_concatenated_cache( int $post_id ) {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Clearing concatenated audio cache for post ID: ' . $post_id );
 		
@@ -1763,7 +1815,7 @@ class ListenUp_Audio_Concatenator {
 		
 		$deleted_count = 0;
 		foreach ( $files as $file ) {
-			if ( unlink( $file ) ) {
+			if ( wp_delete_file( $file ) ) {
 				$deleted_count++;
 				$debug->info( 'Deleted concatenated cache file: ' . basename( $file ) );
 			}
@@ -1779,10 +1831,10 @@ class ListenUp_Audio_Concatenator {
 	 * @param array $temp_files Array of temporary file paths.
 	 * @return void
 	 */
-	private function cleanup_temp_files( $temp_files ) {
+	private function cleanup_temp_files( array $temp_files ) {
 		foreach ( $temp_files as $temp_file ) {
 			if ( file_exists( $temp_file ) ) {
-				unlink( $temp_file );
+				wp_delete_file( $temp_file );
 			}
 		}
 	}

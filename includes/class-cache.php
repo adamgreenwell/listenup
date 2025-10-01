@@ -168,16 +168,34 @@ class ListenUp_Cache {
 		$response = wp_remote_get( $audio_url, array( 'timeout' => 60 ) );
 
 		if ( is_wp_error( $response ) ) {
+			$debug = ListenUp_Debug::get_instance();
+			$debug->error( 'Failed to download audio file for caching', array( 
+				'audio_url' => $audio_url,
+				'post_id' => $post_id,
+				'error_message' => $response->get_error_message()
+			) );
 			return new WP_Error( 'download_failed', $response->get_error_message() );
 		}
 
 		$response_code = wp_remote_retrieve_response_code( $response );
 		if ( 200 !== $response_code ) {
+			$debug = ListenUp_Debug::get_instance();
+			$debug->error( 'Failed to download audio file - invalid response code', array( 
+				'audio_url' => $audio_url,
+				'post_id' => $post_id,
+				'response_code' => $response_code
+			) );
 			return new WP_Error( 'download_failed', __( 'Failed to download audio file.', 'listenup' ) );
 		}
 
 		$audio_content = wp_remote_retrieve_body( $response );
 		if ( empty( $audio_content ) ) {
+			$debug = ListenUp_Debug::get_instance();
+			$debug->error( 'Downloaded audio file is empty', array( 
+				'audio_url' => $audio_url,
+				'post_id' => $post_id,
+				'response_code' => $response_code
+			) );
 			return new WP_Error( 'empty_file', __( 'Downloaded audio file is empty.', 'listenup' ) );
 		}
 
@@ -195,6 +213,12 @@ class ListenUp_Cache {
 		// Write audio file.
 		$result = file_put_contents( $file_path, $audio_content );
 		if ( false === $result ) {
+			$debug = ListenUp_Debug::get_instance();
+			$debug->error( 'Failed to write audio file to cache', array( 
+				'file_path' => $file_path,
+				'post_id' => $post_id,
+				'file_size' => strlen( $audio_content )
+			) );
 			return new WP_Error( 'write_failed', __( 'Failed to write audio file to cache.', 'listenup' ) );
 		}
 
