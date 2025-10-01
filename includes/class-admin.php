@@ -951,4 +951,37 @@ class ListenUp_Admin {
 		</style>
 		<?php
 	}
+
+	/**
+	 * AJAX handler for generating pre-roll audio.
+	 */
+	public function ajax_generate_preroll() {
+		// Verify nonce.
+		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+		if ( ! wp_verify_nonce( $nonce, 'listenup_admin_nonce' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Security check failed.', 'listenup' ) ) );
+		}
+
+		// Check user capabilities.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'listenup' ) ) );
+		}
+
+		// Get text from request.
+		$text = isset( $_POST['text'] ) ? sanitize_textarea_field( wp_unslash( $_POST['text'] ) ) : '';
+
+		if ( empty( $text ) ) {
+			wp_send_json_error( array( 'message' => __( 'Text is required.', 'listenup' ) ) );
+		}
+
+		// Generate pre-roll audio.
+		$pre_roll_manager = ListenUp_Pre_Roll_Manager::get_instance();
+		$result = $pre_roll_manager->generate_pre_roll_audio( $text );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		wp_send_json_success( $result );
+	}
 }
