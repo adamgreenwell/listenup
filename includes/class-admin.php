@@ -768,27 +768,187 @@ class ListenUp_Admin {
 	public function preroll_audio_field_callback() {
 		$options = get_option( 'listenup_options' );
 		$pre_roll_audio = isset( $options['pre_roll_audio'] ) ? $options['pre_roll_audio'] : '';
-		
+		$pre_roll_text = isset( $options['pre_roll_text'] ) ? $options['pre_roll_text'] : '';
+
 		?>
-		<input type="text" id="pre_roll_audio" name="listenup_options[pre_roll_audio]" value="<?php echo esc_attr( $pre_roll_audio ); ?>" class="regular-text" />
-		<p class="description">
-			<?php esc_html_e( 'Enter the full path to your pre-roll audio file. Supported formats: MP3, WAV, OGG, M4A. Maximum file size: 10MB.', 'listenup' ); ?>
-		</p>
-		<?php if ( ! empty( $pre_roll_audio ) ) : ?>
-			<?php
-			$pre_roll_manager = ListenUp_Pre_Roll_Manager::get_instance();
-			$validation = $pre_roll_manager->validate_pre_roll_file( $pre_roll_audio );
-			?>
-			<?php if ( is_wp_error( $validation ) ) : ?>
-				<p class="description" style="color: #d63638;">
-					<strong><?php esc_html_e( 'Error:', 'listenup' ); ?></strong> <?php echo esc_html( $validation->get_error_message() ); ?>
-				</p>
-			<?php else : ?>
-				<p class="description" style="color: #00a32a;">
-					<strong><?php esc_html_e( 'Valid audio file:', 'listenup' ); ?></strong> <?php echo esc_html( $validation['file_size_formatted'] ); ?> (<?php echo esc_html( strtoupper( $validation['extension'] ) ); ?>)
-				</p>
-			<?php endif; ?>
-		<?php endif; ?>
+		<div id="listenup-preroll-container">
+			<!-- Tab Navigation -->
+			<div class="listenup-preroll-tabs">
+				<button type="button" class="listenup-preroll-tab listenup-preroll-tab-active" data-tab="upload">
+					<?php esc_html_e( 'Upload Audio File', 'listenup' ); ?>
+				</button>
+				<button type="button" class="listenup-preroll-tab" data-tab="generate">
+					<?php esc_html_e( 'Generate with Murf.ai', 'listenup' ); ?>
+				</button>
+			</div>
+
+			<!-- Upload Tab -->
+			<div id="listenup-preroll-upload-tab" class="listenup-preroll-tab-content listenup-preroll-tab-active">
+				<div class="listenup-preroll-upload-section">
+					<button type="button" class="button button-secondary" id="listenup-upload-preroll-btn">
+						<?php esc_html_e( 'Upload Audio File', 'listenup' ); ?>
+					</button>
+					<input type="hidden" id="pre_roll_audio" name="listenup_options[pre_roll_audio]" value="<?php echo esc_attr( $pre_roll_audio ); ?>" />
+
+					<p class="description">
+						<?php esc_html_e( 'Upload a pre-roll audio file. Supported formats: MP3, WAV, OGG, M4A. Maximum file size: 10MB.', 'listenup' ); ?>
+					</p>
+
+					<?php if ( ! empty( $pre_roll_audio ) ) : ?>
+						<div id="listenup-preroll-preview" class="listenup-preroll-preview">
+							<?php
+							$pre_roll_manager = ListenUp_Pre_Roll_Manager::get_instance();
+							$validation = $pre_roll_manager->validate_pre_roll_file( $pre_roll_audio );
+							?>
+							<?php if ( is_wp_error( $validation ) ) : ?>
+								<p class="description" style="color: #d63638;">
+									<strong><?php esc_html_e( 'Error:', 'listenup' ); ?></strong> <?php echo esc_html( $validation->get_error_message() ); ?>
+								</p>
+							<?php else : ?>
+								<div class="listenup-preroll-info">
+									<p style="color: #00a32a;">
+										<strong><?php esc_html_e( 'Current pre-roll audio:', 'listenup' ); ?></strong>
+									</p>
+									<p><?php echo esc_html( basename( $pre_roll_audio ) ); ?></p>
+									<p class="description">
+										<?php echo esc_html( $validation['file_size_formatted'] ); ?> (<?php echo esc_html( strtoupper( $validation['extension'] ) ); ?>)
+									</p>
+									<audio controls style="max-width: 100%; margin-top: 10px;">
+										<source src="<?php echo esc_url( $pre_roll_manager->get_pre_roll_url() ); ?>" type="audio/<?php echo esc_attr( $validation['extension'] ); ?>">
+									</audio>
+									<br>
+									<button type="button" class="button button-secondary" id="listenup-remove-preroll-btn" style="margin-top: 10px;">
+										<?php esc_html_e( 'Remove Pre-roll', 'listenup' ); ?>
+									</button>
+								</div>
+							<?php endif; ?>
+						</div>
+					<?php endif; ?>
+				</div>
+			</div>
+
+			<!-- Generate Tab -->
+			<div id="listenup-preroll-generate-tab" class="listenup-preroll-tab-content">
+				<div class="listenup-preroll-generate-section">
+					<?php
+					// Get current voice settings to display.
+					$selected_voice = isset( $options['selected_voice'] ) ? $options['selected_voice'] : '';
+					$selected_voice_style = isset( $options['selected_voice_style'] ) ? $options['selected_voice_style'] : '';
+
+					// Get voice display name if available.
+					$voice_display_name = '';
+					if ( ! empty( $selected_voice ) ) {
+						// Try to get the voice name from the voices list.
+						$api = ListenUp_API::get_instance();
+						$voices = $api->get_available_voices();
+						if ( ! is_wp_error( $voices ) && ! empty( $voices ) ) {
+							foreach ( $voices as $voice ) {
+								if ( isset( $voice['voiceId'] ) && $voice['voiceId'] === $selected_voice ) {
+									$voice_display_name = isset( $voice['displayName'] ) ? $voice['displayName'] : $selected_voice;
+									break;
+								}
+							}
+						}
+					}
+					?>
+
+					<?php if ( ! empty( $selected_voice ) ) : ?>
+						<div class="listenup-preroll-voice-info" style="background: #f0f6fc; border-left: 4px solid #0073aa; padding: 12px; margin-bottom: 15px;">
+							<p style="margin: 0;">
+								<strong><?php esc_html_e( 'Voice Settings:', 'listenup' ); ?></strong>
+								<?php
+								if ( ! empty( $voice_display_name ) ) {
+									/* translators: %1$s: Voice name, %2$s: Voice style */
+									printf( esc_html__( 'Using %1$s with %2$s style', 'listenup' ), '<strong>' . esc_html( $voice_display_name ) . '</strong>', '<strong>' . esc_html( $selected_voice_style ) . '</strong>' );
+								} else {
+									/* translators: %1$s: Voice ID, %2$s: Voice style */
+									printf( esc_html__( 'Using voice %1$s with %2$s style', 'listenup' ), '<code>' . esc_html( $selected_voice ) . '</code>', '<strong>' . esc_html( $selected_voice_style ) . '</strong>' );
+								}
+								?>
+							</p>
+							<p class="description" style="margin: 5px 0 0 0;">
+								<?php esc_html_e( 'Pre-roll audio will use the same voice and style configured in your plugin settings above.', 'listenup' ); ?>
+							</p>
+						</div>
+					<?php else : ?>
+						<div class="notice notice-warning inline" style="margin-bottom: 15px;">
+							<p>
+								<?php esc_html_e( 'Please configure a voice in the Voice Settings section above before generating pre-roll audio.', 'listenup' ); ?>
+							</p>
+						</div>
+					<?php endif; ?>
+
+					<label for="pre_roll_text">
+						<strong><?php esc_html_e( 'Pre-roll Text', 'listenup' ); ?></strong>
+					</label>
+					<textarea
+						id="pre_roll_text"
+						name="listenup_options[pre_roll_text]"
+						rows="4"
+						class="large-text"
+						maxlength="500"
+						placeholder="<?php esc_attr_e( 'Enter the text you want to convert to audio for your pre-roll...', 'listenup' ); ?>"
+					><?php echo esc_textarea( $pre_roll_text ); ?></textarea>
+					<p class="description">
+						<?php esc_html_e( 'Enter text to generate audio using Murf.ai. Maximum 500 characters.', 'listenup' ); ?>
+						<span id="listenup-preroll-char-count">0/500</span>
+					</p>
+
+					<button type="button" class="button button-primary" id="listenup-generate-preroll-btn" <?php echo empty( $selected_voice ) ? 'disabled' : ''; ?>>
+						<?php esc_html_e( 'Generate Pre-roll Audio', 'listenup' ); ?>
+					</button>
+					<span class="spinner" id="listenup-generate-preroll-spinner"></span>
+
+					<div id="listenup-generate-preroll-status"></div>
+				</div>
+			</div>
+		</div>
+
+		<style>
+			.listenup-preroll-tabs {
+				display: flex;
+				gap: 0;
+				margin-bottom: 20px;
+				border-bottom: 1px solid #ddd;
+			}
+			.listenup-preroll-tab {
+				padding: 10px 20px;
+				background: #f0f0f1;
+				border: 1px solid #ddd;
+				border-bottom: none;
+				cursor: pointer;
+				transition: background 0.2s;
+			}
+			.listenup-preroll-tab:hover {
+				background: #e8e8e9;
+			}
+			.listenup-preroll-tab-active {
+				background: #fff;
+				font-weight: 600;
+			}
+			.listenup-preroll-tab-content {
+				display: none;
+				padding: 20px;
+				border: 1px solid #ddd;
+				border-top: none;
+				background: #fff;
+			}
+			.listenup-preroll-tab-content.listenup-preroll-tab-active {
+				display: block;
+			}
+			.listenup-preroll-preview {
+				margin-top: 15px;
+				padding: 15px;
+				background: #f9f9f9;
+				border-left: 4px solid #00a32a;
+			}
+			#listenup-preroll-char-count {
+				font-weight: 600;
+			}
+			#listenup-generate-preroll-status {
+				margin-top: 15px;
+			}
+		</style>
 		<?php
 	}
 }
