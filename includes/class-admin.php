@@ -474,6 +474,9 @@ class ListenUp_Admin {
 			return;
 		}
 
+		// Enqueue WordPress media uploader.
+		wp_enqueue_media();
+
 		wp_enqueue_style(
 			'listenup-admin',
 			LISTENUP_PLUGIN_URL . 'admin-ui/assets/css/admin.css',
@@ -484,7 +487,7 @@ class ListenUp_Admin {
 		wp_enqueue_script(
 			'listenup-admin',
 			LISTENUP_PLUGIN_URL . 'admin-ui/assets/js/admin.js',
-			array( 'jquery' ),
+			array( 'jquery', 'wp-util' ),
 			LISTENUP_VERSION,
 			true
 		);
