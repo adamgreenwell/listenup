@@ -175,4 +175,183 @@ class ListenUp_Pre_Roll_Manager {
 			'extension' => $extension,
 		);
 	}
+
+	/**
+	 * Generate pre-roll audio using Murf.ai API.
+	 *
+	 * @param string $text Text to convert to audio.
+	 * @param string $voice_id Voice ID (optional, uses default if not provided).
+	 * @param string $voice_style Voice style (optional).
+	 * @return array|WP_Error Result with file path or error.
+	 */
+	public function generate_pre_roll_audio( $text, $voice_id = '', $voice_style = '' ) {
+		$debug = ListenUp_Debug::get_instance();
+		$debug->info( 'Generating pre-roll audio with Murf.ai' );
+
+		// Validate text.
+		if ( empty( $text ) ) {
+			return new WP_Error( 'empty_text', __( 'Pre-roll text cannot be empty.', 'listenup' ) );
+		}
+
+		if ( strlen( $text ) > 500 ) {
+			return new WP_Error( 'text_too_long', __( 'Pre-roll text must be 500 characters or less.', 'listenup' ) );
+		}
+
+		// Use default voice if not provided.
+		if ( empty( $voice_id ) ) {
+			$options = get_option( 'listenup_options' );
+			$voice_id = isset( $options['selected_voice'] ) ? $options['selected_voice'] : '';
+			$voice_style = isset( $options['selected_voice_style'] ) ? $options['selected_voice_style'] : '';
+		}
+
+		// Generate audio using API.
+		$api = ListenUp_API::get_instance();
+		// Use post_id = 0 for pre-roll (not tied to a specific post).
+		$result = $api->generate_audio( $text, 0, $voice_id, $voice_style );
+
+		if ( is_wp_error( $result ) ) {
+			$debug->error( 'Failed to generate pre-roll audio: ' . $result->get_error_message() );
+			return $result;
+		}
+
+		// Get the audio URL from the result.
+		// The generate_audio method may return audio_url or chunks.
+		if ( isset( $result['chunks'] ) && is_array( $result['chunks'] ) && ! empty( $result['chunks'] ) ) {
+			$audio_url = $result['chunks'][0];
+		} elseif ( isset( $result['audio_url'] ) ) {
+			$audio_url = $result['audio_url'];
+		} else {
+			$debug->error( 'Invalid API response format for pre-roll audio', array( 'result' => $result ) );
+			return new WP_Error( 'invalid_response', __( 'Failed to get audio URL from API response.', 'listenup' ) );
+		}
+
+		if ( empty( $audio_url ) ) {
+			return new WP_Error( 'no_audio_url', __( 'No audio URL returned from API.', 'listenup' ) );
+		}
+
+		// The audio is already cached by the API, so we need to convert the URL to a file path.
+		$upload_dir = wp_upload_dir();
+
+		// Parse the URL to get the file path.
+		// The audio_url is typically in format: http://site.com/wp-content/uploads/listenup-audio/filename.mp3
+		$parsed_url = wp_parse_url( $audio_url );
+		$url_path = isset( $parsed_url['path'] ) ? $parsed_url['path'] : '';
+
+		// Extract the relative path from uploads directory.
+		$uploads_base = wp_parse_url( $upload_dir['baseurl'], PHP_URL_PATH );
+		if ( strpos( $url_path, $uploads_base ) === 0 ) {
+			$relative_path = substr( $url_path, strlen( $uploads_base ) );
+			$source_file_path = $upload_dir['basedir'] . $relative_path;
+		} else {
+			// Fallback: try to download from URL.
+			$debug->warning( 'Could not parse audio URL to file path, attempting download', array( 'url' => $audio_url ) );
+			$source_file_path = null;
+		}
+
+		// Create pre-roll directory.
+		$preroll_dir = $upload_dir['basedir'] . '/listenup-preroll';
+		if ( ! file_exists( $preroll_dir ) ) {
+			wp_mkdir_p( $preroll_dir );
+		}
+
+		// Generate unique filename.
+		$filename = 'preroll-' . md5( $text . $voice_id . $voice_style ) . '.mp3';
+		$file_path = $preroll_dir . '/' . $filename;
+
+		// Copy the cached file to pre-roll directory or download if needed.
+		if ( $source_file_path && file_exists( $source_file_path ) ) {
+			// Copy the already-cached file.
+			$copied = copy( $source_file_path, $file_path );
+			if ( ! $copied ) {
+				return new WP_Error( 'copy_failed', __( 'Failed to copy pre-roll audio file.', 'listenup' ) );
+			}
+			$debug->info( 'Pre-roll audio copied from cache: ' . $filename );
+		} else {
+			// Download the file.
+			$response = wp_remote_get( $audio_url, array( 'timeout' => 30 ) );
+
+			if ( is_wp_error( $response ) ) {
+				$debug->error( 'Failed to download pre-roll audio: ' . $response->get_error_message() );
+				return $response;
+			}
+
+			$audio_data = wp_remote_retrieve_body( $response );
+
+			if ( empty( $audio_data ) ) {
+				return new WP_Error( 'download_failed', __( 'Failed to download pre-roll audio file.', 'listenup' ) );
+			}
+
+			// Save audio file.
+			// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Necessary for binary audio file
+			$saved = file_put_contents( $file_path, $audio_data );
+			// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+
+			if ( false === $saved ) {
+				return new WP_Error( 'save_failed', __( 'Failed to save pre-roll audio file.', 'listenup' ) );
+			}
+
+			$debug->info( 'Pre-roll audio downloaded successfully: ' . $filename );
+		}
+
+		return array(
+			'success' => true,
+			'file_path' => $file_path,
+			'file_url' => $upload_dir['baseurl'] . '/listenup-preroll/' . $filename,
+			'filename' => $filename,
+		);
+	}
+
+	/**
+	 * Save uploaded pre-roll audio file.
+	 *
+	 * @param array $file Uploaded file data from $_FILES.
+	 * @return array|WP_Error Result with file path or error.
+	 */
+	public function save_uploaded_pre_roll( $file ) {
+		$debug = ListenUp_Debug::get_instance();
+		$debug->info( 'Saving uploaded pre-roll audio file' );
+
+		// Validate file upload.
+		if ( empty( $file ) || ! isset( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
+			return new WP_Error( 'invalid_upload', __( 'Invalid file upload.', 'listenup' ) );
+		}
+
+		// Check file size.
+		if ( $file['size'] > 10 * 1024 * 1024 ) {
+			return new WP_Error( 'file_too_large', __( 'Pre-roll audio file is too large. Maximum size is 10MB.', 'listenup' ) );
+		}
+
+		// Check file extension.
+		$extension = strtolower( pathinfo( $file['name'], PATHINFO_EXTENSION ) );
+		$allowed_extensions = array( 'mp3', 'wav', 'ogg', 'm4a' );
+		if ( ! in_array( $extension, $allowed_extensions, true ) ) {
+			return new WP_Error( 'invalid_format', __( 'Pre-roll audio file must be in MP3, WAV, OGG, or M4A format.', 'listenup' ) );
+		}
+
+		// Prepare upload directory.
+		$upload_dir = wp_upload_dir();
+		$preroll_dir = $upload_dir['basedir'] . '/listenup-preroll';
+
+		if ( ! file_exists( $preroll_dir ) ) {
+			wp_mkdir_p( $preroll_dir );
+		}
+
+		// Generate unique filename.
+		$filename = 'preroll-uploaded-' . time() . '.' . $extension;
+		$file_path = $preroll_dir . '/' . $filename;
+
+		// Move uploaded file.
+		if ( ! move_uploaded_file( $file['tmp_name'], $file_path ) ) {
+			return new WP_Error( 'move_failed', __( 'Failed to save uploaded file.', 'listenup' ) );
+		}
+
+		$debug->info( 'Pre-roll audio uploaded successfully: ' . $filename );
+
+		return array(
+			'success' => true,
+			'file_path' => $file_path,
+			'file_url' => $upload_dir['baseurl'] . '/listenup-preroll/' . $filename,
+			'filename' => $filename,
+		);
+	}
 }
