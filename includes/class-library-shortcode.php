@@ -99,6 +99,7 @@ class ListenUp_Library_Shortcode {
 		$show_date      = 'yes' === $atts['show_date'];
 		$show_player    = 'yes' === $atts['show_player'];
 		$columns        = intval( $atts['columns'] );
+		$autoplay_next  = 'yes' === $atts['autoplay_next'];
 
 		// Validate columns.
 		if ( $columns < 1 || $columns > 3 ) {
