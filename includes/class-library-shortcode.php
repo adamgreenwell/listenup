@@ -132,11 +132,38 @@ class ListenUp_Library_Shortcode {
 
 		if ( $audio_posts->have_posts() ) {
 			?>
-			<div class="listenup-library listenup-library-columns-<?php echo esc_attr( $columns ); ?>">
+			<div class="listenup-library listenup-library-columns-<?php echo esc_attr( $columns ); ?>" data-autoplay-available="<?php echo $autoplay_next ? 'true' : 'false'; ?>">
+				<?php if ( $autoplay_next && $show_player ) : ?>
+					<div class="listenup-library-controls">
+						<label class="listenup-autoplay-wrapper">
+							<input type="checkbox" class="listenup-autoplay-checkbox" />
+							<span class="listenup-autoplay-toggle"></span>
+							<span class="listenup-autoplay-label">
+								<?php
+								/* translators: Label for autoplay toggle */
+								esc_html_e( 'Autoplay next', 'listenup' );
+								?>
+							</span>
+						</label>
+					</div>
+				<?php endif; ?>
 				<?php
+				$post_ids = array();
 				while ( $audio_posts->have_posts() ) {
 					$audio_posts->the_post();
-					$this->render_library_item( get_the_ID(), $show_excerpt, $show_date, $show_player );
+					$post_ids[] = get_the_ID();
+				}
+
+				// Rewind to render items.
+				$audio_posts->rewind_posts();
+				$index = 0;
+				$total = count( $post_ids );
+
+				while ( $audio_posts->have_posts() ) {
+					$audio_posts->the_post();
+					$next_post_id = ( $index < $total - 1 ) ? $post_ids[ $index + 1 ] : null;
+					$this->render_library_item( get_the_ID(), $show_excerpt, $show_date, $show_player, $next_post_id );
+					$index++;
 				}
 				?>
 			</div>
@@ -159,12 +186,13 @@ class ListenUp_Library_Shortcode {
 	/**
 	 * Render a single library item.
 	 *
-	 * @param int  $post_id Post ID.
-	 * @param bool $show_excerpt Whether to show excerpt.
-	 * @param bool $show_date Whether to show date.
-	 * @param bool $show_player Whether to show inline player.
+	 * @param int      $post_id Post ID.
+	 * @param bool     $show_excerpt Whether to show excerpt.
+	 * @param bool     $show_date Whether to show date.
+	 * @param bool     $show_player Whether to show inline player.
+	 * @param int|null $next_post_id Next post ID for autoplay.
 	 */
-	private function render_library_item( $post_id, $show_excerpt, $show_date, $show_player ) {
+	private function render_library_item( $post_id, $show_excerpt, $show_date, $show_player, $next_post_id = null ) {
 		$post = get_post( $post_id );
 		if ( ! $post ) {
 			return;
@@ -175,7 +203,7 @@ class ListenUp_Library_Shortcode {
 		$excerpt   = get_the_excerpt( $post_id );
 		$date      = get_the_date( '', $post_id );
 		?>
-		<article class="listenup-library-item" data-post-id="<?php echo esc_attr( $post_id ); ?>">
+		<article class="listenup-library-item" data-post-id="<?php echo esc_attr( $post_id ); ?>" <?php echo $next_post_id ? 'data-next-post-id="' . esc_attr( $next_post_id ) . '"' : ''; ?>>
 			<?php if ( has_post_thumbnail( $post_id ) ) : ?>
 				<div class="listenup-library-thumbnail">
 					<a href="<?php echo esc_url( $permalink ); ?>">
@@ -207,7 +235,7 @@ class ListenUp_Library_Shortcode {
 					<div class="listenup-library-player">
 						<?php
 						$frontend = ListenUp_Frontend::get_instance();
-						echo $frontend->get_audio_player_for_shortcode( $post_id );
+						echo wp_kses_post( $frontend->get_audio_player_for_shortcode( $post_id ) );
 						?>
 					</div>
 				<?php else : ?>
