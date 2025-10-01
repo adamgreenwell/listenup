@@ -209,6 +209,10 @@ class ListenUp_Admin {
 			$sanitized['pre_roll_audio'] = sanitize_text_field( $input['pre_roll_audio'] );
 		}
 
+		if ( isset( $input['pre_roll_text'] ) ) {
+			$sanitized['pre_roll_text'] = sanitize_textarea_field( $input['pre_roll_text'] );
+		}
+
 		if ( isset( $input['debug_enabled'] ) ) {
 			$sanitized['debug_enabled'] = (bool) $input['debug_enabled'];
 		}
