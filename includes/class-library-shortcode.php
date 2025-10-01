@@ -55,6 +55,14 @@ class ListenUp_Library_Shortcode {
 				array( 'listenup-frontend' ),
 				LISTENUP_VERSION
 			);
+
+			wp_enqueue_script(
+				'listenup-library',
+				LISTENUP_PLUGIN_URL . 'assets/js/library.js',
+				array( 'jquery', 'listenup-frontend' ),
+				LISTENUP_VERSION,
+				true
+			);
 		}
 	}
 
