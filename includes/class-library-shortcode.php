@@ -84,6 +84,7 @@ class ListenUp_Library_Shortcode {
 				'show_date'      => 'yes',
 				'show_player'    => 'no',
 				'columns'        => '1',
+				'autoplay_next'  => 'no',
 			),
 			$atts,
 			'listenup_library'
