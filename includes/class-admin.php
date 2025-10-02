@@ -1623,7 +1623,7 @@ class ListenUp_Admin {
 						<input type="url" name="listenup_options[aws_base_url]" 
 							   value="<?php echo esc_attr( isset( $options['aws_base_url'] ) ? $options['aws_base_url'] : '' ); ?>" 
 							   class="regular-text" placeholder="https://your-bucket.s3.amazonaws.com" />
-						<p class="description"><?php esc_html_e( 'Public URL for your S3 bucket (e.g., https://your-bucket.s3.amazonaws.com)', 'listenup' ); ?></p>
+						<p class="description"><?php esc_html_e( 'Public URL for your S3 bucket (e.g., https://your-bucket.s3.amazonaws.com). Use HTTPS for security.', 'listenup' ); ?></p>
 					</td>
 				</tr>
 			</table>
