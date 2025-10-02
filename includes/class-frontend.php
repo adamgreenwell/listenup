@@ -206,8 +206,15 @@ class ListenUp_Frontend {
 			$audio_url = $audio_data;
 		}
 
-		// Convert URLs to secure URLs only if not using cloud storage
-		if ( ! $is_cloud_storage ) {
+		// Convert URLs to secure URLs
+		if ( $is_cloud_storage ) {
+			// Convert cloud storage URLs to HTTPS
+			$audio_url = $this->convert_to_https( $audio_url );
+			if ( $audio_chunks ) {
+				$audio_chunks = array_map( array( $this, 'convert_to_https' ), $audio_chunks );
+			}
+		} else {
+			// Convert local URLs to secure proxy URLs
 			$audio_url = $this->get_secure_audio_url( $audio_url );
 			if ( $audio_chunks ) {
 				$audio_chunks = array_map( array( $this, 'get_secure_audio_url' ), $audio_chunks );
@@ -216,7 +223,7 @@ class ListenUp_Frontend {
 		
 		ob_start();
 		?>
-		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>" data-post-id="<?php echo esc_attr( $post_id ); ?>" <?php echo $audio_chunks ? 'data-audio-chunks="' . esc_attr( wp_json_encode( $audio_chunks ) ) . '"' : ''; ?> <?php echo $is_cloud_storage ? 'data-cloud-storage="true" data-cloud-url="' . esc_attr( $cloud_url ) . '"' : ''; ?>>
+		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>" data-post-id="<?php echo esc_attr( $post_id ); ?>" <?php echo $audio_chunks ? 'data-audio-chunks="' . esc_attr( wp_json_encode( $audio_chunks ) ) . '"' : ''; ?> <?php echo $is_cloud_storage ? 'data-cloud-storage="true" data-cloud-url="' . esc_attr( $this->convert_to_https( $cloud_url ) ) . '"' : ''; ?>>
 			<div class="listenup-player-header">
 				<h3 class="listenup-player-title">
 					<?php /* translators: Audio player title */ esc_html_e( 'Listen to this content', 'listenup' ); ?>
@@ -617,6 +624,27 @@ class ListenUp_Frontend {
 		);
 
 		return $secure_url;
+	}
+
+	/**
+	 * Convert HTTP URLs to HTTPS for cloud storage.
+	 *
+	 * @param string $url Original URL.
+	 * @return string HTTPS URL.
+	 */
+	private function convert_to_https( $url ) {
+		if ( empty( $url ) ) {
+			return $url;
+		}
+
+		// Convert HTTP to HTTPS
+		$url = str_replace( 'http://', 'https://', $url );
+		
+		// Convert S3 website endpoints to regular S3 endpoints
+		// s3-website.us-east-2.amazonaws.com -> s3.us-east-2.amazonaws.com
+		$url = str_replace( 's3-website.', 's3.', $url );
+		
+		return $url;
 	}
 
 	/**
