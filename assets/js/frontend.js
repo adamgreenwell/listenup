@@ -335,6 +335,16 @@
             this.updatePlayButton();
             this.progressFill.css('width', '0%');
             this.currentTimeDisplay.text('0:00');
+            
+            // Dispatch custom event for library autoplay functionality
+            const endedEvent = new CustomEvent('listenup:audioEnded', {
+                detail: {
+                    audioElement: this.audio,
+                    playerContainer: this.container[0]
+                },
+                bubbles: true
+            });
+            this.audio.dispatchEvent(endedEvent);
         }
         
         onError(error) {
