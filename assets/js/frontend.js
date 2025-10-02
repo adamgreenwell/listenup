@@ -28,6 +28,12 @@
             this.concatenatedBlobUrl = null;
             this.concatenator = new ListenUpAudioConcatenator();
             
+            // Cloud storage properties
+            this.isCloudStorage = this.container.data('cloud-storage') === true;
+            this.cloudUrl = this.container.data('cloud-url');
+            this.hasTriedCloud = false;
+            this.cloudFailed = false;
+            
             this.init();
         }
         
@@ -36,8 +42,12 @@
             this.checkDownloadPermission();
             this.setupDownload();
 
-            // Handle chunked audio if present
-            if (this.audioChunks && this.audioChunks.length > 1) {
+            // Handle cloud storage or chunked audio
+            if (this.isCloudStorage) {
+                // Try cloud storage first
+                await this.handleCloudStorage();
+            } else if (this.audioChunks && this.audioChunks.length > 1) {
+                // Handle local chunked audio
                 this.disableDownloadButton();
                 await this.handleChunkedAudio();
                 this.enableDownloadButton();
@@ -71,6 +81,77 @@
             this.downloadButton.show();
         }
         
+        /**
+         * Handle cloud storage audio with fallback to local
+         */
+        async handleCloudStorage() {
+            try {
+                // Show loading state
+                this.showLoadingState();
+                
+                // Try to load cloud audio first
+                await this.tryCloudAudio();
+                
+                // If cloud failed and we have local chunks, fallback to local
+                if (this.cloudFailed && this.audioChunks && this.audioChunks.length > 1) {
+                    console.log('Cloud audio failed, falling back to local chunks');
+                    this.disableDownloadButton();
+                    await this.handleChunkedAudio();
+                    this.enableDownloadButton();
+                } else if (this.cloudFailed) {
+                    throw new Error('Cloud audio failed and no local fallback available');
+                }
+                
+                // Hide loading state
+                this.hideLoadingState();
+                
+            } catch (error) {
+                console.error('ListenUp: Error handling cloud storage audio:', error);
+                this.hideLoadingState();
+                this.showErrorState('Failed to load audio. Please try again.');
+            }
+        }
+
+        /**
+         * Try to load cloud audio
+         */
+        async tryCloudAudio() {
+            return new Promise((resolve, reject) => {
+                if (!this.cloudUrl) {
+                    reject(new Error('No cloud URL available'));
+                    return;
+                }
+
+                // Set up error handler for cloud audio
+                const handleCloudError = () => {
+                    this.cloudFailed = true;
+                    this.hasTriedCloud = true;
+                    reject(new Error('Cloud audio failed to load'));
+                };
+
+                // Set up success handler
+                const handleCloudSuccess = () => {
+                    console.log('Cloud audio loaded successfully');
+                    resolve();
+                };
+
+                // Add event listeners
+                this.audio.addEventListener('error', handleCloudError, { once: true });
+                this.audio.addEventListener('canplaythrough', handleCloudSuccess, { once: true });
+
+                // Set cloud URL as source
+                this.audio.src = this.cloudUrl;
+                this.audio.load();
+
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    if (!this.hasTriedCloud) {
+                        handleCloudError();
+                    }
+                }, 10000);
+            });
+        }
+
         /**
          * Handle chunked audio concatenation
          */
@@ -254,11 +335,39 @@
             this.updatePlayButton();
             this.progressFill.css('width', '0%');
             this.currentTimeDisplay.text('0:00');
+            
+            // Dispatch custom event for library autoplay functionality
+            const endedEvent = new CustomEvent('listenup:audioEnded', {
+                detail: {
+                    audioElement: this.audio,
+                    playerContainer: this.container[0]
+                },
+                bubbles: true
+            });
+            this.audio.dispatchEvent(endedEvent);
         }
         
         onError(error) {
             console.error('Audio error:', error);
-            this.container.append('<p class="listenup-error">Error loading audio. Please try again.</p>');
+
+            // Get more details about the error
+            const audioElement = error.target;
+            const audioSrc = audioElement ? audioElement.src : 'unknown';
+            const errorCode = audioElement && audioElement.error ? audioElement.error.code : 'unknown';
+            const errorMessage = audioElement && audioElement.error ? audioElement.error.message : 'Unknown error';
+
+            console.error('Audio error details:', {
+                src: audioSrc,
+                errorCode: errorCode,
+                errorMessage: errorMessage,
+                networkState: audioElement ? audioElement.networkState : 'unknown',
+                readyState: audioElement ? audioElement.readyState : 'unknown'
+            });
+
+            // Only show error message if one doesn't already exist
+            if (this.container.find('.listenup-error').length === 0) {
+                this.container.append('<p class="listenup-error">Error loading audio. Please try again.</p>');
+            }
         }
         
         formatTime(seconds) {
@@ -279,6 +388,12 @@
          * Handle download for both single and chunked audio
          */
         handleDownload() {
+            // For cloud storage, try to download directly from cloud URL first
+            if (this.isCloudStorage && this.cloudUrl && !this.cloudFailed) {
+                this.downloadCloudAudio();
+                return;
+            }
+            
             // For chunked audio, use server-side generation for better macOS compatibility
             if (this.audioChunks && this.audioChunks.length > 1) {
                 this.downloadWavServerSide();
@@ -305,6 +420,25 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        /**
+         * Download cloud audio directly
+         */
+        downloadCloudAudio() {
+            try {
+                const filename = 'audio-cloud-' + Date.now() + '.mp3';
+                const link = document.createElement('a');
+                link.href = this.cloudUrl;
+                link.download = filename;
+                link.target = '_blank'; // Open in new tab as fallback
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (error) {
+                console.error('ListenUp: Error downloading cloud audio:', error);
+                this.showErrorState('Failed to download cloud audio. Please try again.');
+            }
         }
 
 

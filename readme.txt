@@ -131,7 +131,7 @@ After implementing server-level blocks, audio will still play normally through t
 = 1.3.1 =
 * Add "autoplay" feature to audio library shortcode
 
-= 1.3.0
+= 1.3.0 =
 * Restrict download to logged-in users or block all downloads completely
 * Implemented leech protection (requires server configuration)
 

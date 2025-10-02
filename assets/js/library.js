@@ -45,8 +45,8 @@
                 localStorage.setItem('listenup_autoplay_enabled', this.autoplayEnabled);
             });
 
-            // Listen for audio ended events on all players in this library
-            this.library.on('ended', '.listenup-audio-element', (e) => {
+            // Listen for custom audio ended events on all players in this library
+            this.library.on('listenup:audioEnded', '.listenup-audio-element', (e) => {
                 if (this.autoplayEnabled) {
                     this.handleAudioEnded(e.target);
                 }
