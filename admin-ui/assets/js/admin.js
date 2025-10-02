@@ -34,6 +34,9 @@
 
             // Pre-roll functionality
             this.initPreRollManager();
+            
+            // Cloud storage provider change handler
+            this.handleCloudStorageProviderChange();
         }
         
         toggleApiKeyVisibility() {
@@ -367,9 +370,12 @@
                 $('#listenup-preroll-char-count').text(`${length}/500`);
             });
 
-            // Initialize char count on page load
-            const initialLength = $('#pre_roll_text').val().length;
-            $('#listenup-preroll-char-count').text(`${initialLength}/500`);
+            // Initialize char count on page load (only if element exists)
+            const $preRollText = $('#pre_roll_text');
+            if ($preRollText.length) {
+                const initialLength = $preRollText.val().length;
+                $('#listenup-preroll-char-count').text(`${initialLength}/500`);
+            }
 
             // Upload pre-roll audio
             $(document).on('click', '#listenup-upload-preroll-btn', this.handleUploadPreRoll.bind(this));
@@ -379,6 +385,13 @@
 
             // Generate pre-roll audio
             $(document).on('click', '#listenup-generate-preroll-btn', this.handleGeneratePreRoll.bind(this));
+
+            // Conversion API test
+            $(document).on('click', '#listenup-test-conversion-api', this.handleTestConversionAPI.bind(this));
+
+            // Audio library actions
+            $(document).on('click', '.listenup-convert-btn', this.handleConvertAudio.bind(this));
+            $(document).on('click', '.listenup-delete-btn', this.handleDeleteAudio.bind(this));
         }
 
         handleUploadPreRoll(e) {
@@ -536,6 +549,173 @@
             // Remove existing preview and add new one
             $('#listenup-preroll-preview').remove();
             $('.listenup-preroll-upload-section .description').after(previewHtml);
+        }
+
+        handleTestConversionAPI(e) {
+            e.preventDefault();
+
+            const $btn = $(e.currentTarget);
+            const $spinner = $('#listenup-test-api-spinner');
+            const $result = $('#listenup-test-api-result');
+
+            // Disable button and show spinner
+            $btn.prop('disabled', true);
+            $spinner.addClass('is-active');
+            $result.html('<p class="description">Testing connection...</p>');
+
+            // Make AJAX request
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'listenup_test_conversion_api',
+                    nonce: listenupAdmin.nonce
+                },
+                success: (response) => {
+                    if (response.success) {
+                        $result.html('<p class="description" style="color: #00a32a;"><strong>✓ Connection successful!</strong> API is reachable and responding.</p>');
+                    } else {
+                        const errorMessage = response.data?.message || 'Unknown error';
+                        $result.html(`<p class="description" style="color: #d63638;"><strong>✗ Connection failed:</strong> ${errorMessage}</p>`);
+                    }
+                },
+                error: () => {
+                    $result.html('<p class="description" style="color: #d63638;"><strong>✗ Network error:</strong> Could not reach the server.</p>');
+                },
+                complete: () => {
+                    $btn.prop('disabled', false);
+                    $spinner.removeClass('is-active');
+                }
+            });
+        }
+
+        handleConvertAudio(e) {
+            e.preventDefault();
+
+            const $btn = $(e.currentTarget);
+            const postId = $btn.data('post-id');
+            const $row = $btn.closest('tr');
+
+            if (!confirm('Convert this WAV file to MP3? This may take a few minutes.')) {
+                return;
+            }
+
+            // Disable button and show loading state
+            const originalText = $btn.text();
+            $btn.prop('disabled', true).text('Converting...');
+
+            // Make AJAX request
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'listenup_convert_audio',
+                    post_id: postId,
+                    nonce: listenupAdmin.nonce
+                },
+                success: (response) => {
+                    if (response.success) {
+                        // Show success message
+                        this.showMessage(response.data.message, 'success');
+                        
+                        // Reload the page to show updated status
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1000);
+                    } else {
+                        const errorMessage = response.data?.message || 'Unknown error';
+                        this.showMessage('Conversion failed: ' + errorMessage, 'error');
+                        $btn.prop('disabled', false).text(originalText);
+                    }
+                },
+                error: () => {
+                    this.showMessage('Network error occurred during conversion.', 'error');
+                    $btn.prop('disabled', false).text(originalText);
+                }
+            });
+        }
+
+        handleDeleteAudio(e) {
+            e.preventDefault();
+
+            const $btn = $(e.currentTarget);
+            const postId = $btn.data('post-id');
+            const $row = $btn.closest('tr');
+
+            if (!confirm('Are you sure you want to delete the audio files for this post? This action cannot be undone.')) {
+                return;
+            }
+
+            // Disable button and show loading state
+            const originalText = $btn.text();
+            $btn.prop('disabled', true).text('Deleting...');
+
+            // Make AJAX request
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'listenup_delete_audio',
+                    post_id: postId,
+                    nonce: listenupAdmin.nonce
+                },
+                success: (response) => {
+                    if (response.success) {
+                        // Show success message
+                        this.showMessage(response.data.message, 'success');
+                        
+                        // Fade out and remove the row
+                        $row.fadeOut(500, function() {
+                            $(this).remove();
+                            
+                            // Check if there are any rows left
+                            const remainingRows = $('table.wp-list-table tbody tr').length;
+                            if (remainingRows === 0) {
+                                // Reload to show empty state
+                                location.reload();
+                            }
+                        });
+                    } else {
+                        const errorMessage = response.data?.message || 'Unknown error';
+                        this.showMessage('Delete failed: ' + errorMessage, 'error');
+                        $btn.prop('disabled', false).text(originalText);
+                    }
+                },
+                error: () => {
+                    this.showMessage('Network error occurred during deletion.', 'error');
+                    $btn.prop('disabled', false).text(originalText);
+                }
+            });
+        }
+        
+        handleCloudStorageProviderChange() {
+            const $providerSelect = $('#cloud_storage_provider');
+            if (!$providerSelect.length) {
+                return;
+            }
+            
+            // Show/hide settings based on selected provider
+            const toggleSettings = () => {
+                const selectedProvider = $providerSelect.val();
+                
+                // Hide all settings
+                $('.cloud-storage-settings').hide();
+                
+                // Show relevant settings
+                if (selectedProvider === 'aws_s3') {
+                    $('#aws-s3-settings').css('display', 'block');
+                } else if (selectedProvider === 'cloudflare_r2') {
+                    $('#cloudflare-r2-settings').css('display', 'block');
+                } else if (selectedProvider === 'google_cloud') {
+                    $('#google-cloud-settings').css('display', 'block');
+                }
+            };
+            
+            // Initial toggle
+            toggleSettings();
+            
+            // Bind change event
+            $providerSelect.on('change', toggleSettings);
         }
     }
     

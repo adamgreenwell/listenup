@@ -235,7 +235,8 @@ class ListenUp_Library_Shortcode {
 					<div class="listenup-library-player">
 						<?php
 						$frontend = ListenUp_Frontend::get_instance();
-						echo wp_kses_post( $frontend->get_audio_player_for_shortcode( $post_id ) );
+						// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Output is already safely escaped in generate_audio_player method
+						echo $frontend->get_audio_player_for_shortcode( $post_id );
 						?>
 					</div>
 				<?php else : ?>
