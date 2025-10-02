@@ -219,7 +219,15 @@ class ListenUp_Cloud_Storage_S3 extends ListenUp_Cloud_Storage_Base {
 	 */
 	public function get_public_url( $remote_path ) {
 		$base_url = rtrim( $this->config['base_url'], '/' );
-		return $base_url . '/' . ltrim( $remote_path, '/' );
+		$url = $base_url . '/' . ltrim( $remote_path, '/' );
+		
+		// Ensure HTTPS is used for security
+		$url = str_replace( 'http://', 'https://', $url );
+		
+		// Convert S3 website endpoints to regular S3 endpoints for HTTPS support
+		$url = str_replace( 's3-website.', 's3.', $url );
+		
+		return $url;
 	}
 
 	/**
