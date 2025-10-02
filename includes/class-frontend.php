@@ -174,9 +174,21 @@ class ListenUp_Frontend {
 		// Handle both single URL and chunked audio data
 		$audio_url = '';
 		$audio_chunks = null;
+		$cloud_url = null;
+		$is_cloud_storage = false;
 		
 		if ( is_array( $audio_data ) ) {
-			if ( isset( $audio_data['chunks'] ) ) {
+			// Check if this is cloud storage audio
+			if ( isset( $audio_data['cloud_storage'] ) && $audio_data['cloud_storage'] ) {
+				$is_cloud_storage = true;
+				$cloud_url = isset( $audio_data['cloud_url'] ) ? $audio_data['cloud_url'] : $audio_data['url'];
+				$audio_url = $cloud_url; // Use cloud URL as primary
+				
+				// For chunked audio, keep local chunks as fallback
+				if ( isset( $audio_data['chunks'] ) ) {
+					$audio_chunks = $audio_data['chunks'];
+				}
+			} elseif ( isset( $audio_data['chunks'] ) ) {
 				$audio_chunks = $audio_data['chunks'];
 				$audio_url = isset( $audio_data['chunks'][0] ) ? $audio_data['chunks'][0] : ''; // Fallback URL
 			} else {
@@ -194,15 +206,24 @@ class ListenUp_Frontend {
 			$audio_url = $audio_data;
 		}
 
-		// Convert all URLs to secure URLs.
-		$audio_url = $this->get_secure_audio_url( $audio_url );
-		if ( $audio_chunks ) {
-			$audio_chunks = array_map( array( $this, 'get_secure_audio_url' ), $audio_chunks );
+		// Convert URLs to secure URLs
+		if ( $is_cloud_storage ) {
+			// Convert cloud storage URLs to HTTPS
+			$audio_url = $this->convert_to_https( $audio_url );
+			if ( $audio_chunks ) {
+				$audio_chunks = array_map( array( $this, 'convert_to_https' ), $audio_chunks );
+			}
+		} else {
+			// Convert local URLs to secure proxy URLs
+			$audio_url = $this->get_secure_audio_url( $audio_url );
+			if ( $audio_chunks ) {
+				$audio_chunks = array_map( array( $this, 'get_secure_audio_url' ), $audio_chunks );
+			}
 		}
 		
 		ob_start();
 		?>
-		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>" data-post-id="<?php echo esc_attr( $post_id ); ?>" <?php echo $audio_chunks ? 'data-audio-chunks="' . esc_attr( wp_json_encode( $audio_chunks ) ) . '"' : ''; ?>>
+		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>" data-post-id="<?php echo esc_attr( $post_id ); ?>" <?php echo $audio_chunks ? 'data-audio-chunks="' . esc_attr( wp_json_encode( $audio_chunks ) ) . '"' : ''; ?> <?php echo $is_cloud_storage ? 'data-cloud-storage="true" data-cloud-url="' . esc_attr( $this->convert_to_https( $cloud_url ) ) . '"' : ''; ?>>
 			<div class="listenup-player-header">
 				<h3 class="listenup-player-title">
 					<?php /* translators: Audio player title */ esc_html_e( 'Listen to this content', 'listenup' ); ?>
@@ -242,6 +263,12 @@ class ListenUp_Frontend {
 				aria-label="<?php /* translators: Audio element aria label */ esc_attr_e( 'Audio player for post content', 'listenup' ); ?>"
 			>
 				<source src="<?php echo esc_url( $audio_url ); ?>" type="audio/mpeg">
+				<?php if ( $is_cloud_storage && $audio_chunks ) : ?>
+					<!-- Fallback to local chunks if cloud fails -->
+					<?php foreach ( $audio_chunks as $chunk_url ) : ?>
+						<source src="<?php echo esc_url( $this->get_secure_audio_url( $chunk_url ) ); ?>" type="audio/wav">
+					<?php endforeach; ?>
+				<?php endif; ?>
 				<?php /* translators: Fallback text for unsupported browsers */ esc_html_e( 'Your browser does not support the audio element.', 'listenup' ); ?>
 			</audio>
 		</div>
@@ -597,6 +624,27 @@ class ListenUp_Frontend {
 		);
 
 		return $secure_url;
+	}
+
+	/**
+	 * Convert HTTP URLs to HTTPS for cloud storage.
+	 *
+	 * @param string $url Original URL.
+	 * @return string HTTPS URL.
+	 */
+	private function convert_to_https( $url ) {
+		if ( empty( $url ) ) {
+			return $url;
+		}
+
+		// Convert HTTP to HTTPS
+		$url = str_replace( 'http://', 'https://', $url );
+		
+		// Convert S3 website endpoints to regular S3 endpoints
+		// s3-website.us-east-2.amazonaws.com -> s3.us-east-2.amazonaws.com
+		$url = str_replace( 's3-website.', 's3.', $url );
+		
+		return $url;
 	}
 
 	/**

@@ -28,6 +28,11 @@ define( 'LISTENUP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LISTENUP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'LISTENUP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
+// Load Composer autoloader for cloud storage SDKs.
+if ( file_exists( LISTENUP_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
+	require_once LISTENUP_PLUGIN_DIR . 'vendor/autoload.php';
+}
+
 /**
  * Autoloader for ListenUp classes.
  *
@@ -125,6 +130,7 @@ class ListenUp {
 		ListenUp_Admin::get_instance();
 		ListenUp_API::get_instance();
 		ListenUp_Cache::get_instance();
+		ListenUp_Conversion_API::get_instance();
 		ListenUp_Frontend::get_instance();
 		ListenUp_Meta_Box::get_instance();
 		ListenUp_Shortcode::get_instance();

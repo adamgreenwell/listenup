@@ -63,6 +63,38 @@ class ListenUp_Cache {
 		$debug = ListenUp_Debug::get_instance();
 		$debug->info( 'Checking for cached audio for post ID: ' . $post_id );
 		
+		// First check for cloud storage URLs (preferred).
+		$cloud_mp3_url = get_post_meta( $post_id, '_listenup_mp3_url', true );
+		if ( ! empty( $cloud_mp3_url ) ) {
+			$debug->info( 'Found cloud storage URL: ' . $cloud_mp3_url );
+			
+			// Check if this is a chunked audio file by looking for chunked audio meta.
+			$chunked_audio_meta = get_post_meta( $post_id, '_listenup_chunked_audio', true );
+			if ( ! empty( $chunked_audio_meta ) && isset( $chunked_audio_meta['chunks'] ) ) {
+				$debug->info( 'Found chunked audio with cloud storage URL' );
+				return array(
+					'url' => $cloud_mp3_url,
+					'cloud_url' => $cloud_mp3_url,
+					'chunks' => $chunked_audio_meta['chunks'], // Keep local chunks as fallback
+					'chunked' => true,
+					'created' => $chunked_audio_meta['created'],
+					'cloud_storage' => true,
+				);
+			} else {
+				// Single audio file with cloud storage.
+				$audio_meta = get_post_meta( $post_id, '_listenup_audio', true );
+				$debug->info( 'Found single audio file with cloud storage URL' );
+				return array(
+					'url' => $cloud_mp3_url,
+					'cloud_url' => $cloud_mp3_url,
+					'file' => isset( $audio_meta['file'] ) ? $audio_meta['file'] : '',
+					'created' => isset( $audio_meta['created'] ) ? $audio_meta['created'] : current_time( 'mysql' ),
+					'cloud_storage' => true,
+				);
+			}
+		}
+		
+		// Fallback to local files if no cloud storage URL.
 		// First check for chunked audio.
 		$chunked_audio_meta = get_post_meta( $post_id, '_listenup_chunked_audio', true );
 		if ( ! empty( $chunked_audio_meta ) && isset( $chunked_audio_meta['chunks'] ) ) {
@@ -88,6 +120,7 @@ class ListenUp_Cache {
 					'chunks' => $valid_chunks,
 					'chunked' => true,
 					'created' => $chunked_audio_meta['created'],
+					'cloud_storage' => false,
 				);
 			} else {
 				$debug->warning( 'Some chunk files missing, cleaning up chunked audio metadata' );
@@ -111,6 +144,7 @@ class ListenUp_Cache {
 					'url' => $audio_meta['url'],
 					'file' => $audio_file,
 					'created' => $audio_meta['created'],
+					'cloud_storage' => false,
 				);
 			} else {
 				// Clean up orphaned post meta.
@@ -150,6 +184,7 @@ class ListenUp_Cache {
 			'url' => $audio_url,
 			'file' => $audio_file,
 			'created' => $cache_data['created'],
+			'cloud_storage' => false,
 		);
 	}
 
