@@ -2,6 +2,10 @@
 /**
  * Server-side audio concatenation with metadata correction for ListenUp plugin.
  *
+ * @deprecated 1.0.0 Audio concatenation has been moved to the cloud conversion service.
+ *             This class is kept for backward compatibility but should not be used for new code.
+ *             Use ListenUp_Conversion_API::concatenate_audio_files() instead.
+ *
  * @package ListenUp
  */
 
@@ -53,13 +57,17 @@ class ListenUp_Audio_Concatenator {
 	/**
 	 * Concatenate audio files and return the concatenated file URL.
 	 *
+	 * @deprecated 1.0.0 Use ListenUp_Conversion_API::concatenate_audio_files() instead.
+	 *
 	 * @param array  $audio_urls Array of audio file URLs to concatenate.
 	 * @param int    $post_id Post ID for caching.
 	 * @param string $format Audio format ('mp3' or 'wav').
 	 * @return array|WP_Error Concatenated audio data or error.
 	 */
 	public function get_concatenated_audio_url( $audio_urls, $post_id, $format = 'mp3' ) {
+		// Log deprecation warning.
 		$debug = ListenUp_Debug::get_instance();
+		$debug->warning( 'ListenUp_Audio_Concatenator::get_concatenated_audio_url() is deprecated. Use ListenUp_Conversion_API::concatenate_audio_files() instead.' );
 		$debug->info( 'Starting server-side audio concatenation for ' . count( $audio_urls ) . ' files' );
 
 		if ( empty( $audio_urls ) || ! is_array( $audio_urls ) ) {

@@ -34,6 +34,9 @@
             this.hasTriedCloud = false;
             this.cloudFailed = false;
             
+            // Pre-roll detection
+            this.hasPreroll = this.container.data('has-preroll') === true;
+            
             this.init();
         }
         
@@ -44,10 +47,15 @@
 
             // Handle cloud storage or chunked audio
             if (this.isCloudStorage) {
-                // Try cloud storage first
-                await this.handleCloudStorage();
+                // For cloud storage with pre-roll, use client-side concatenation
+                if (this.hasPreroll) {
+                    await this.handleCloudStorageWithPreroll();
+                } else {
+                    // Try cloud storage first
+                    await this.handleCloudStorage();
+                }
             } else if (this.audioChunks && this.audioChunks.length > 1) {
-                // Handle local chunked audio
+                // Handle local chunked audio (including pre-roll)
                 this.disableDownloadButton();
                 await this.handleChunkedAudio();
                 this.enableDownloadButton();
@@ -178,6 +186,76 @@
                 console.error('ListenUp: Error handling chunked audio:', error);
                 this.hideLoadingState();
                 this.showErrorState('Failed to process audio. Please try again.');
+            }
+        }
+
+        /**
+         * Handle cloud storage audio with pre-roll using client-side concatenation
+         */
+        async handleCloudStorageWithPreroll() {
+            try {
+                // Show loading state
+                this.showLoadingState();
+                
+                // Get pre-roll URL and cloud URL for client-side concatenation
+                const postId = this.container.data('post-id');
+                const preRollUrl = await this.getPreRollUrl(postId);
+                
+                if (preRollUrl) {
+                    // Use client-side concatenation with pre-roll + cloud audio
+                    const audioUrls = [preRollUrl, this.cloudUrl];
+                    const result = await this.concatenator.concatenateAudioChunks(audioUrls);
+                    
+                    if (result.success) {
+                        this.concatenatedBlobUrl = result.blobUrl;
+                        this.audio.src = result.blobUrl;
+                        this.hideLoadingState();
+                    } else {
+                        throw new Error('Client-side concatenation failed');
+                    }
+                } else {
+                    throw new Error('Failed to get pre-roll URL');
+                }
+                
+            } catch (error) {
+                console.error('ListenUp: Error handling cloud storage with pre-roll:', error);
+                this.hideLoadingState();
+                this.showErrorState('Failed to process audio. Please try again.');
+            }
+        }
+
+        /**
+         * Get pre-roll URL for client-side concatenation
+         */
+        async getPreRollUrl(postId) {
+            try {
+                const response = await fetch(listenupAjax.ajaxurl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        action: 'listenup_get_preroll_url',
+                        post_id: postId,
+                        nonce: listenupAjax.frontend_nonce
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.success && result.data.url) {
+                    return result.data.url;
+                } else {
+                    throw new Error(result.data?.message || 'Failed to get pre-roll URL');
+                }
+                
+            } catch (error) {
+                console.error('ListenUp: Error getting pre-roll URL:', error);
+                throw error;
             }
         }
 

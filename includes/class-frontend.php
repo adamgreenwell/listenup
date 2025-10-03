@@ -94,6 +94,7 @@ class ListenUp_Frontend {
 			array(
 				'ajaxurl' => admin_url( 'admin-ajax.php' ),
 				'nonce' => wp_create_nonce( 'listenup_download_wav' ),
+				'frontend_nonce' => wp_create_nonce( 'listenup_frontend_nonce' ),
 				'downloadRestriction' => $download_restriction,
 				'isUserLoggedIn' => is_user_logged_in(),
 			)
@@ -223,7 +224,12 @@ class ListenUp_Frontend {
 		
 		ob_start();
 		?>
-		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>" data-post-id="<?php echo esc_attr( $post_id ); ?>" <?php echo $audio_chunks ? 'data-audio-chunks="' . esc_attr( wp_json_encode( $audio_chunks ) ) . '"' : ''; ?> <?php echo $is_cloud_storage ? 'data-cloud-storage="true" data-cloud-url="' . esc_attr( $this->convert_to_https( $cloud_url ) ) . '"' : ''; ?>>
+		<?php
+		// Check if pre-roll is configured
+		$pre_roll_manager = ListenUp_Pre_Roll_Manager::get_instance();
+		$has_pre_roll = $pre_roll_manager->get_pre_roll_file() !== false;
+		?>
+		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>" data-post-id="<?php echo esc_attr( $post_id ); ?>" <?php echo $audio_chunks ? 'data-audio-chunks="' . esc_attr( wp_json_encode( $audio_chunks ) ) . '"' : ''; ?> <?php echo $is_cloud_storage ? 'data-cloud-storage="true" data-cloud-url="' . esc_attr( $this->convert_to_https( $cloud_url ) ) . '"' : ''; ?> <?php echo $has_pre_roll ? 'data-has-preroll="true"' : ''; ?>>
 			<div class="listenup-player-header">
 				<h3 class="listenup-player-title">
 					<?php /* translators: Audio player title */ esc_html_e( 'Listen to this content', 'listenup' ); ?>
@@ -347,56 +353,21 @@ class ListenUp_Frontend {
 			wp_die( 'No chunked audio available for concatenation' );
 		}
 
-		// Use server-side concatenator to create WAV file.
-		$concatenator = ListenUp_Audio_Concatenator::get_instance();
-		$result = $concatenator->get_concatenated_audio_url( $audio_urls, $post_id, 'wav' );
+		// Use cloud conversion service to concatenate audio files.
+		$conversion_api = ListenUp_Conversion_API::get_instance();
+		$result = $conversion_api->concatenate_audio_files( $audio_urls, $post_id, 'wav' );
 
 		if ( is_wp_error( $result ) ) {
 			wp_die( 'Failed to concatenate audio: ' . esc_html( $result->get_error_message() ) );
 		}
 
-		// Verify the file exists and get its size.
-		if ( ! file_exists( $result['file_path'] ) ) {
-			wp_die( 'Concatenated audio file not found' );
-		}
-
-		$file_size = filesize( $result['file_path'] );
-		if ( false === $file_size || $file_size === 0 ) {
-			wp_die( 'Concatenated audio file is empty or corrupted' );
-		}
-
-		// Set headers for file download.
-		$filename = 'listenup-audio-' . $post_id . '-' . gmdate( 'Y-m-d-H-i-s' ) . '.wav';
-
-		// Clear any previous output.
-		if ( ob_get_level() ) {
-			ob_end_clean();
-		}
-
-		header( 'Content-Type: audio/wav' );
-		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
-		header( 'Content-Length: ' . $file_size );
-		header( 'Cache-Control: no-cache, must-revalidate' );
-		header( 'Expires: Sat, 26 Jul 1997 05:00:00 GMT' );
-		header( 'Accept-Ranges: bytes' );
-
-		// Stream the file directly to avoid memory issues with large files.
-		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Required for streaming large binary files
-		$handle = fopen( $result['file_path'], 'rb' );
-		if ( false === $handle ) {
-			wp_die( 'Could not read concatenated audio file' );
-		}
-
-		// Output file in 64KB chunks to avoid memory issues.
-		while ( ! feof( $handle ) ) {
-			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Binary file output
-			echo fread( $handle, 65536 );
-			flush();
-		}
-
-		fclose( $handle );
-		// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen,WordPress.WP.AlternativeFunctions.file_system_operations_fread,WordPress.WP.AlternativeFunctions.file_system_operations_fclose
-
+		// Get the concatenated file URL and size.
+		$concatenated_url = $result['url'];
+		$file_size = $result['size'] ?? 0;
+		
+		// Since we're using cloud concatenation, redirect to the cloud URL.
+		// This is more efficient than downloading and re-serving the file.
+		wp_redirect( $concatenated_url );
 		exit;
 	}
 
@@ -438,22 +409,31 @@ class ListenUp_Frontend {
 		}
 		*/
 
-		// Construct file path.
+		// Construct file path - check both cache and preroll directories.
 		$upload_dir = wp_upload_dir();
 		$cache_dir = $upload_dir['basedir'] . '/listenup-audio';
+		$preroll_dir = $upload_dir['basedir'] . '/listenup-preroll';
+		
 		$file_path = $cache_dir . '/' . basename( $file );
+		
+		// If not found in cache directory, check preroll directory.
+		if ( ! file_exists( $file_path ) ) {
+			$file_path = $preroll_dir . '/' . basename( $file );
+		}
 
-		// Validate file exists and is within the cache directory (security check).
+		// Validate file exists.
 		if ( ! file_exists( $file_path ) ) {
 			status_header( 404 );
 			wp_die( 'File not found' );
 		}
 
-		// Ensure file is within our cache directory (prevent directory traversal).
+		// Ensure file is within our allowed directories (prevent directory traversal).
 		$real_cache_dir = realpath( $cache_dir );
+		$real_preroll_dir = realpath( $preroll_dir );
 		$real_file_path = realpath( $file_path );
 
-		if ( false === $real_file_path || 0 !== strpos( $real_file_path, $real_cache_dir ) ) {
+		if ( false === $real_file_path || 
+			( 0 !== strpos( $real_file_path, $real_cache_dir ) && 0 !== strpos( $real_file_path, $real_preroll_dir ) ) ) {
 			status_header( 403 );
 			wp_die( 'Access denied' );
 		}
