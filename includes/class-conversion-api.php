@@ -106,11 +106,16 @@ class ListenUp_Conversion_API {
 		$has_chunks = ! empty( $chunked_meta ) && isset( $chunked_meta['chunks'] ) && is_array( $chunked_meta['chunks'] );
 		
 		if ( $has_chunks ) {
+			// Filter out pre-roll URLs from conversion - only convert content audio.
+			$content_chunks = $this->filter_out_preroll_chunks( $chunked_meta['chunks'] );
+			
 			$debug->info( 'Starting multi-segment WAV to MP3 conversion', array(
 				'post_id' => $post_id,
 				'segment_count' => count( $chunked_meta['chunks'] ),
+				'content_segments' => count( $content_chunks ),
+				'has_preroll' => count( $chunked_meta['chunks'] ) > count( $content_chunks ),
 			) );
-			return $this->convert_multi_segment_audio( $post_id, $chunked_meta['chunks'] );
+			return $this->convert_multi_segment_audio( $post_id, $content_chunks );
 		} else {
 			$debug->info( 'Starting single WAV to MP3 conversion', array(
 				'post_id' => $post_id,
@@ -278,6 +283,38 @@ class ListenUp_Conversion_API {
 			'size' => $result['size'] ?? 0,
 			'cloud_url' => $result['cloud_url'] ?? $result['url'],
 		);
+	}
+
+	/**
+	 * Filter out pre-roll chunks from the chunk list for conversion.
+	 * Only content audio should be converted, not pre-roll.
+	 *
+	 * @param array $chunks Array of chunk URLs.
+	 * @return array Filtered array with only content audio chunks.
+	 */
+	private function filter_out_preroll_chunks( $chunks ) {
+		$debug = ListenUp_Debug::get_instance();
+		$content_chunks = array();
+		
+		foreach ( $chunks as $chunk_url ) {
+			// Extract filename from URL to check if it's a pre-roll file.
+			$filename = basename( wp_parse_url( $chunk_url, PHP_URL_PATH ) );
+			
+			// Pre-roll files typically start with 'preroll-' prefix.
+			if ( strpos( $filename, 'preroll-' ) === 0 ) {
+				$debug->info( 'Filtering out pre-roll chunk: ' . $filename );
+				continue;
+			}
+			
+			$content_chunks[] = $chunk_url;
+		}
+		
+		$debug->info( 'Filtered chunks for conversion', array(
+			'original_count' => count( $chunks ),
+			'content_count' => count( $content_chunks ),
+		) );
+		
+		return $content_chunks;
 	}
 
 	/**
