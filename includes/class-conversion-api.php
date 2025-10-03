@@ -200,6 +200,87 @@ class ListenUp_Conversion_API {
 	}
 
 	/**
+	 * Concatenate audio files using the cloud conversion service.
+	 *
+	 * @param array  $audio_urls Array of audio file URLs to concatenate.
+	 * @param int    $post_id Post ID for tracking.
+	 * @param string $format Audio format ('mp3' or 'wav').
+	 * @return array|WP_Error Concatenated audio data or error.
+	 */
+	public function concatenate_audio_files( $audio_urls, $post_id, $format = 'wav' ) {
+		$debug = ListenUp_Debug::get_instance();
+		$debug->info( 'Starting cloud-based audio concatenation for ' . count( $audio_urls ) . ' files' );
+
+		if ( empty( $audio_urls ) || ! is_array( $audio_urls ) ) {
+			$debug->error( 'No audio URLs provided for concatenation' );
+			return new WP_Error( 'invalid_input', __( 'No audio URLs provided for concatenation.', 'listenup' ) );
+		}
+
+		// Validate API configuration.
+		if ( empty( $this->api_key ) ) {
+			$debug->error( 'Conversion API key not configured' );
+			return new WP_Error( 
+				'api_key_missing', 
+				__( 'Conversion API key is not configured. Please add it in ListenUp settings.', 'listenup' ) 
+			);
+		}
+
+		// Use the join endpoint for concatenation.
+		$debug->info( 'Using cloud conversion service for audio concatenation' );
+		
+		// Prepare request data.
+		$request_data = array(
+			'action' => 'concatenate',
+			'files' => $audio_urls,
+			'format' => $format,
+			'post_id' => $post_id,
+		);
+
+		// Send request to conversion API.
+		$response = wp_remote_post(
+			$this->join_endpoint,
+			array(
+				'method' => 'POST',
+				'timeout' => 300, // 5 minutes timeout for large files.
+				'headers' => array(
+					'Content-Type' => 'application/json',
+					'Authorization' => 'Bearer ' . $this->api_key,
+				),
+				'body' => wp_json_encode( $request_data ),
+			)
+		);
+
+		// Process response.
+		if ( is_wp_error( $response ) ) {
+			$debug->error( 'Cloud concatenation request failed: ' . $response->get_error_message() );
+			return $response;
+		}
+
+		$response_code = wp_remote_retrieve_response_code( $response );
+		if ( 200 !== $response_code ) {
+			$debug->error( 'Cloud concatenation failed with status: ' . $response_code );
+			return new WP_Error( 'concatenation_failed', __( 'Cloud concatenation service failed.', 'listenup' ) );
+		}
+
+		$response_body = wp_remote_retrieve_body( $response );
+		$result = json_decode( $response_body, true );
+
+		if ( ! $result || ! isset( $result['success'] ) || ! $result['success'] ) {
+			$debug->error( 'Cloud concatenation returned error: ' . wp_json_encode( $result ) );
+			return new WP_Error( 'concatenation_failed', __( 'Cloud concatenation service returned an error.', 'listenup' ) );
+		}
+
+		$debug->info( 'Cloud concatenation successful' );
+		
+		return array(
+			'success' => true,
+			'url' => $result['url'],
+			'size' => $result['size'] ?? 0,
+			'cloud_url' => $result['cloud_url'] ?? $result['url'],
+		);
+	}
+
+	/**
 	 * Convert multiple WAV segments to a single concatenated MP3.
 	 *
 	 * @param int   $post_id Post ID for tracking.
@@ -228,17 +309,25 @@ class ListenUp_Conversion_API {
 		// Validate that segment files exist (without loading them into memory).
 		$upload_dir = wp_upload_dir();
 		$cache_dir = $upload_dir['basedir'] . '/listenup-audio';
+		$preroll_dir = $upload_dir['basedir'] . '/listenup-preroll';
 		$segment_files = array();
 
 		foreach ( $chunk_urls as $index => $url ) {
 			// Extract filename from URL.
 			$filename = basename( wp_parse_url( $url, PHP_URL_PATH ) );
+			
+			// Check both cache and preroll directories.
 			$file_path = $cache_dir . '/' . $filename;
+			if ( ! file_exists( $file_path ) ) {
+				$file_path = $preroll_dir . '/' . $filename;
+			}
 
 			if ( ! file_exists( $file_path ) ) {
 				$debug->error( 'Segment file not found', array(
 					'index' => $index,
 					'file' => $filename,
+					'checked_cache_dir' => $cache_dir,
+					'checked_preroll_dir' => $preroll_dir,
 				) );
 				$this->update_conversion_status( $post_id, 'failed', sprintf(
 					/* translators: %d: Segment number */

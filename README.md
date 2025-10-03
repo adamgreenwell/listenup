@@ -205,6 +205,9 @@ GPL v2 or later
 
 ## Changelog
 
+### 1.3.2
+- Updated pre-roll feature to work with cloud-stored post audio
+
 ### 1.3.11
 - Added cloud storage support (AWS S3, Cloudflare R2, Google Cloud Storage)
 - Added Composer dependencies for cloud SDKs

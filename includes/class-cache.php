@@ -84,6 +84,10 @@ class ListenUp_Cache {
 				// Single audio file with cloud storage.
 				$audio_meta = get_post_meta( $post_id, '_listenup_audio', true );
 				$debug->info( 'Found single audio file with cloud storage URL' );
+				
+				// For cloud storage, return the original audio without automatic pre-roll processing
+				// Pre-roll will be handled by the frontend when needed
+				$debug->info( 'Returning cloud storage audio without automatic pre-roll processing' );
 				return array(
 					'url' => $cloud_mp3_url,
 					'cloud_url' => $cloud_mp3_url,
@@ -100,13 +104,32 @@ class ListenUp_Cache {
 		if ( ! empty( $chunked_audio_meta ) && isset( $chunked_audio_meta['chunks'] ) ) {
 			$debug->info( 'Found chunked audio metadata with ' . count( $chunked_audio_meta['chunks'] ) . ' chunks' );
 			
+			// Check if this is pre-roll chunked audio (has pre-roll flag)
+			$has_pre_roll = isset( $chunked_audio_meta['has_pre_roll'] ) && $chunked_audio_meta['has_pre_roll'];
+			if ( $has_pre_roll ) {
+				$debug->info( 'Found pre-roll chunked audio' );
+			}
+			
 			// Verify all chunk files still exist.
 			$valid_chunks = array();
 			foreach ( $chunked_audio_meta['chunks'] as $chunk_url ) {
+				// For pre-roll chunks, we need to check both cache directory and preroll directory
 				$chunk_filename = basename( wp_parse_url( $chunk_url, PHP_URL_PATH ) );
 				$chunk_file = $this->cache_dir . '/' . $chunk_filename;
 				
-				if ( file_exists( $chunk_file ) ) {
+				// If not found in cache directory and this is pre-roll audio, check preroll directory
+				if ( ! file_exists( $chunk_file ) && $has_pre_roll ) {
+					$upload_dir = wp_upload_dir();
+					$preroll_dir = $upload_dir['basedir'] . '/listenup-preroll';
+					$preroll_file = $preroll_dir . '/' . $chunk_filename;
+					
+					if ( file_exists( $preroll_file ) ) {
+						$valid_chunks[] = $chunk_url;
+						$debug->info( 'Found pre-roll chunk file: ' . $preroll_file );
+					} else {
+						$debug->warning( 'Pre-roll chunk file not found: ' . $preroll_file );
+					}
+				} elseif ( file_exists( $chunk_file ) ) {
 					$valid_chunks[] = $chunk_url;
 				} else {
 					$debug->warning( 'Chunk file not found: ' . $chunk_file );
@@ -121,6 +144,7 @@ class ListenUp_Cache {
 					'chunked' => true,
 					'created' => $chunked_audio_meta['created'],
 					'cloud_storage' => false,
+					'has_pre_roll' => $has_pre_roll,
 				);
 			} else {
 				$debug->warning( 'Some chunk files missing, cleaning up chunked audio metadata' );
@@ -140,6 +164,10 @@ class ListenUp_Cache {
 			
 			if ( file_exists( $audio_file ) ) {
 				$debug->info( 'Returning cached audio from post meta' );
+				
+				// Return original cached audio without automatic pre-roll processing
+				// Pre-roll should only be added during audio generation, not cache retrieval
+				$debug->info( 'Returning cached audio without automatic pre-roll processing' );
 				return array(
 					'url' => $audio_meta['url'],
 					'file' => $audio_file,

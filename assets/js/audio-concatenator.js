@@ -39,18 +39,23 @@
          */
         async downloadAndDecodeAudio(url) {
             try {
+                console.log('ListenUp: Downloading audio from URL:', url);
                 const response = await fetch(url);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
                 const arrayBuffer = await response.arrayBuffer();
+                console.log('ListenUp: Downloaded audio buffer size:', arrayBuffer.byteLength, 'bytes');
+                
                 const audioContext = this.initAudioContext();
                 const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
                 
+                console.log('ListenUp: Successfully decoded audio - duration:', audioBuffer.duration, 'seconds, sample rate:', audioBuffer.sampleRate, 'Hz, channels:', audioBuffer.numberOfChannels);
                 return audioBuffer;
             } catch (error) {
                 console.error('ListenUp: Error downloading/decoding audio:', error);
+                console.error('ListenUp: Failed URL:', url);
                 throw error;
             }
         }
@@ -296,6 +301,8 @@
             }
 
             try {
+                console.log('ListenUp: Starting concatenation of', audioUrls.length, 'audio URLs:', audioUrls);
+                
                 // Download and decode all audio chunks
                 const downloadPromises = audioUrls.map(url => this.downloadAndDecodeAudio(url));
                 const audioBuffers = await Promise.all(downloadPromises);

@@ -52,6 +52,11 @@ class ListenUp_Admin {
 		add_action( 'wp_ajax_listenup_get_voices', array( $this, 'ajax_get_voices' ) );
 		add_action( 'wp_ajax_listenup_preview_voice', array( $this, 'ajax_preview_voice' ) );
 		add_action( 'wp_ajax_listenup_generate_preroll', array( $this, 'ajax_generate_preroll' ) );
+		add_action( 'wp_ajax_listenup_save_preroll', array( $this, 'ajax_save_preroll' ) );
+		add_action( 'wp_ajax_listenup_concatenate_cloud_audio', array( $this, 'ajax_concatenate_cloud_audio' ) );
+		add_action( 'wp_ajax_nopriv_listenup_concatenate_cloud_audio', array( $this, 'ajax_concatenate_cloud_audio' ) );
+		add_action( 'wp_ajax_listenup_get_preroll_url', array( $this, 'ajax_get_preroll_url' ) );
+		add_action( 'wp_ajax_nopriv_listenup_get_preroll_url', array( $this, 'ajax_get_preroll_url' ) );
 		add_action( 'wp_ajax_listenup_test_conversion_api', array( $this, 'ajax_test_conversion_api' ) );
 		add_action( 'wp_ajax_listenup_convert_audio', array( $this, 'ajax_convert_audio' ) );
 		add_action( 'wp_ajax_listenup_delete_audio', array( $this, 'ajax_delete_audio' ) );
@@ -1061,7 +1066,7 @@ class ListenUp_Admin {
 					<input type="hidden" id="pre_roll_audio" name="listenup_options[pre_roll_audio]" value="<?php echo esc_attr( $pre_roll_audio ); ?>" />
 
 					<p class="description">
-						<?php esc_html_e( 'Upload a pre-roll audio file. Supported formats: MP3, WAV, OGG, M4A. Maximum file size: 10MB.', 'listenup' ); ?>
+						<?php esc_html_e( 'Upload a pre-roll audio file. File must be in WAV format. Maximum file size: 10MB.', 'listenup' ); ?>
 					</p>
 
 					<?php if ( ! empty( $pre_roll_audio ) ) : ?>
@@ -1253,6 +1258,41 @@ class ListenUp_Admin {
 		}
 
 		wp_send_json_success( $result );
+	}
+
+	/**
+	 * AJAX handler for saving pre-roll to options.
+	 */
+	public function ajax_save_preroll() {
+		// Verify nonce.
+		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+		if ( ! wp_verify_nonce( $nonce, 'listenup_admin_nonce' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Security check failed.', 'listenup' ) ) );
+		}
+
+		// Check user capabilities.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Insufficient permissions.', 'listenup' ) ) );
+		}
+
+		// Get file path from request.
+		$file_path = isset( $_POST['file_path'] ) ? sanitize_text_field( wp_unslash( $_POST['file_path'] ) ) : '';
+
+		if ( empty( $file_path ) ) {
+			wp_send_json_error( array( 'message' => __( 'File path is required.', 'listenup' ) ) );
+		}
+
+		// Validate that the file exists.
+		if ( ! file_exists( $file_path ) ) {
+			wp_send_json_error( array( 'message' => __( 'Pre-roll file not found.', 'listenup' ) ) );
+		}
+
+		// Update the options with the new pre-roll file path.
+		$options = get_option( 'listenup_options', array() );
+		$options['pre_roll_audio'] = $file_path;
+		update_option( 'listenup_options', $options );
+
+		wp_send_json_success( array( 'message' => __( 'Pre-roll saved successfully.', 'listenup' ) ) );
 	}
 
 	/**
@@ -1716,5 +1756,85 @@ class ListenUp_Admin {
 			</table>
 		</div>
 		<?php
+	}
+
+	/**
+	 * AJAX handler for concatenating cloud audio with pre-roll.
+	 */
+	public function ajax_concatenate_cloud_audio() {
+		// Verify nonce.
+		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+		if ( ! wp_verify_nonce( $nonce, 'listenup_frontend_nonce' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Security check failed.', 'listenup' ) ) );
+		}
+
+		// Get post ID.
+		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+		if ( ! $post_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid post ID.', 'listenup' ) ) );
+		}
+
+		// Get cached audio data.
+		$cache = ListenUp_Cache::get_instance();
+		$cached_audio = $cache->get_cached_audio( $post_id );
+
+		if ( ! $cached_audio || ! isset( $cached_audio['cloud_storage'] ) || ! $cached_audio['cloud_storage'] ) {
+			wp_send_json_error( array( 'message' => __( 'No cloud storage audio found for this post.', 'listenup' ) ) );
+		}
+
+		// Get pre-roll manager.
+		$pre_roll_manager = ListenUp_Pre_Roll_Manager::get_instance();
+		$pre_roll_file = $pre_roll_manager->get_pre_roll_file();
+
+		if ( ! $pre_roll_file ) {
+			wp_send_json_error( array( 'message' => __( 'No pre-roll audio configured.', 'listenup' ) ) );
+		}
+
+		// Get pre-roll URL.
+		$pre_roll_url = $pre_roll_manager->get_pre_roll_url( $post_id );
+		if ( ! $pre_roll_url ) {
+			wp_send_json_error( array( 'message' => __( 'Could not generate pre-roll URL.', 'listenup' ) ) );
+		}
+
+		// Use cloud conversion service to create concatenated audio.
+		$conversion_api = ListenUp_Conversion_API::get_instance();
+		$audio_urls = array( $pre_roll_url, $cached_audio['cloud_url'] );
+		
+		$result = $conversion_api->concatenate_audio_files( $audio_urls, $post_id, 'wav' );
+
+		if ( is_wp_error( $result ) ) {
+			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
+		}
+
+		// Return the concatenated audio URL.
+		wp_send_json_success( array( 'url' => $result['url'] ) );
+	}
+
+	/**
+	 * AJAX handler for getting pre-roll URL.
+	 */
+	public function ajax_get_preroll_url() {
+		// Verify nonce.
+		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+		if ( ! wp_verify_nonce( $nonce, 'listenup_frontend_nonce' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Security check failed.', 'listenup' ) ) );
+		}
+
+		// Get post ID.
+		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
+		if ( ! $post_id ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid post ID.', 'listenup' ) ) );
+		}
+
+		// Get pre-roll manager.
+		$pre_roll_manager = ListenUp_Pre_Roll_Manager::get_instance();
+		$pre_roll_url = $pre_roll_manager->get_pre_roll_url( $post_id );
+
+		if ( ! $pre_roll_url ) {
+			wp_send_json_error( array( 'message' => __( 'No pre-roll audio available.', 'listenup' ) ) );
+		}
+
+		// Return the pre-roll URL.
+		wp_send_json_success( array( 'url' => $pre_roll_url ) );
 	}
 }
