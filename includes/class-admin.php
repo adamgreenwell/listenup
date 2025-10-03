@@ -1756,57 +1756,6 @@ class ListenUp_Admin {
 		<?php
 	}
 
-	/**
-	 * AJAX handler for concatenating cloud audio with pre-roll.
-	 */
-	public function ajax_concatenate_cloud_audio() {
-		// Verify nonce.
-		$nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
-		if ( ! wp_verify_nonce( $nonce, 'listenup_frontend_nonce' ) ) {
-			wp_send_json_error( array( 'message' => __( 'Security check failed.', 'listenup' ) ) );
-		}
-
-		// Get post ID.
-		$post_id = isset( $_POST['post_id'] ) ? absint( $_POST['post_id'] ) : 0;
-		if ( ! $post_id ) {
-			wp_send_json_error( array( 'message' => __( 'Invalid post ID.', 'listenup' ) ) );
-		}
-
-		// Get cached audio data.
-		$cache = ListenUp_Cache::get_instance();
-		$cached_audio = $cache->get_cached_audio( $post_id );
-
-		if ( ! $cached_audio || ! isset( $cached_audio['cloud_storage'] ) || ! $cached_audio['cloud_storage'] ) {
-			wp_send_json_error( array( 'message' => __( 'No cloud storage audio found for this post.', 'listenup' ) ) );
-		}
-
-		// Get pre-roll manager.
-		$pre_roll_manager = ListenUp_Pre_Roll_Manager::get_instance();
-		$pre_roll_file = $pre_roll_manager->get_pre_roll_file();
-
-		if ( ! $pre_roll_file ) {
-			wp_send_json_error( array( 'message' => __( 'No pre-roll audio configured.', 'listenup' ) ) );
-		}
-
-		// Get pre-roll URL.
-		$pre_roll_url = $pre_roll_manager->get_pre_roll_url( $post_id );
-		if ( ! $pre_roll_url ) {
-			wp_send_json_error( array( 'message' => __( 'Could not generate pre-roll URL.', 'listenup' ) ) );
-		}
-
-		// Use cloud conversion service to create concatenated audio.
-		$conversion_api = ListenUp_Conversion_API::get_instance();
-		$audio_urls = array( $pre_roll_url, $cached_audio['cloud_url'] );
-		
-		$result = $conversion_api->concatenate_audio_files( $audio_urls, $post_id, 'wav' );
-
-		if ( is_wp_error( $result ) ) {
-			wp_send_json_error( array( 'message' => $result->get_error_message() ) );
-		}
-
-		// Return the concatenated audio URL.
-		wp_send_json_success( array( 'url' => $result['url'] ) );
-	}
 
 	/**
 	 * AJAX handler for getting pre-roll URL.
