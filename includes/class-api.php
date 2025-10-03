@@ -129,6 +129,24 @@ class ListenUp_API {
 			return $audio_result;
 		}
 
+		// If pre-roll was added and we have chunks, store them properly in the cache.
+		if ( isset( $final_result['chunks'] ) && is_array( $final_result['chunks'] ) && count( $final_result['chunks'] ) > 1 ) {
+			$debug = ListenUp_Debug::get_instance();
+			$debug->info( 'Storing pre-roll chunked audio metadata' );
+			
+			// Store chunked audio metadata with pre-roll.
+			$chunked_audio_meta = array(
+				'chunks' => $final_result['chunks'],
+				'chunked' => true,
+				'created' => current_time( 'mysql' ),
+				'text_hash' => substr( md5( $text ), 0, 8 ),
+				'total_chunks' => count( $final_result['chunks'] ),
+				'has_pre_roll' => true,
+			);
+			
+			update_post_meta( $post_id, '_listenup_chunked_audio', $chunked_audio_meta );
+		}
+
 		return $final_result;
 	}
 

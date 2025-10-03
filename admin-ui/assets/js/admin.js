@@ -493,22 +493,46 @@
                 },
                 success: (response) => {
                     if (response.success && response.data.success !== false) {
-                        // Update hidden field with file path
-                        $('#pre_roll_audio').val(response.data.file_path);
+                        // Handle dual-format response structure
+                        const wavFile = response.data.wav_file_path || response.data.file_path;
+                        const wavFilename = response.data.wav_filename || response.data.filename;
+                        const wavUrl = response.data.wav_file_url || response.data.file_url;
+                        const mp3File = response.data.mp3_file_path;
+                        const mp3Filename = response.data.mp3_filename;
+                        const mp3Url = response.data.mp3_file_url;
+                        const hasMp3 = response.data.has_mp3;
 
-                        // Show success message
+                        // Update hidden field with WAV file path (primary format)
+                        $('#pre_roll_audio').val(wavFile);
+                        
+                        // Automatically save the pre-roll to options
+                        this.savePrerollToOptions(wavFile);
+
+                        // Show success message with dual-format info
+                        let audioHtml = '';
+                        if (wavUrl) {
+                            audioHtml += `<source src="${wavUrl}" type="audio/wav">`;
+                        }
+                        if (mp3Url && hasMp3) {
+                            audioHtml += `<source src="${mp3Url}" type="audio/mpeg">`;
+                        }
+
                         $status.html(`
                             <div class="listenup-preroll-preview" style="margin-top: 15px; padding: 15px; background: #f9f9f9; border-left: 4px solid #00a32a;">
                                 <p style="color: #00a32a;"><strong>Pre-roll audio generated successfully!</strong></p>
-                                <p>${response.data.filename}</p>
+                                <p><strong>WAV:</strong> ${wavFilename}</p>
+                                ${hasMp3 ? `<p><strong>MP3:</strong> ${mp3Filename}</p>` : ''}
                                 <audio controls style="max-width: 100%; margin-top: 10px;">
-                                    <source src="${response.data.file_url}" type="audio/mpeg">
+                                    ${audioHtml}
                                 </audio>
                                 <p class="description" style="margin-top: 10px;">Remember to save your settings to apply this pre-roll!</p>
                             </div>
                         `);
 
                         this.showMessage('Pre-roll audio generated successfully!', 'success');
+                        
+                        // Refresh the upload tab preview to show the new pre-roll
+                        this.refreshPrerollPreview();
                     } else {
                         const errorMessage = response.data?.message || 'Unknown error';
                         $status.html(`<p class="description" style="color: #d63638;">Failed to generate pre-roll: ${errorMessage}</p>`);
@@ -716,6 +740,48 @@
             
             // Bind change event
             $providerSelect.on('change', toggleSettings);
+        }
+        
+        savePrerollToOptions(filePath) {
+            // Save the pre-roll file path to WordPress options
+            $.ajax({
+                url: ajaxurl,
+                type: 'POST',
+                data: {
+                    action: 'listenup_save_preroll',
+                    file_path: filePath,
+                    nonce: listenupAdmin.nonce
+                },
+                success: (response) => {
+                    if (response.success) {
+                        // Refresh the upload tab preview
+                        this.refreshPrerollPreview();
+                    }
+                },
+                error: () => {
+                    console.error('Failed to save pre-roll to options');
+                }
+            });
+        }
+        
+        refreshPrerollPreview() {
+            // Update the upload tab preview without reloading the page
+            const $uploadTab = $('#listenup-preroll-upload-tab');
+            const $preview = $uploadTab.find('#listenup-preroll-preview');
+            const filePath = $('#pre_roll_audio').val();
+            
+            if (filePath) {
+                // Show a simple preview with the file path
+                $preview.html(`
+                    <div class="listenup-preroll-info">
+                        <p style="color: #00a32a;">
+                            <strong>Current pre-roll audio:</strong>
+                        </p>
+                        <p>${filePath.split('/').pop()}</p>
+                        <p class="description">Pre-roll audio is ready. Remember to save your settings!</p>
+                    </div>
+                `).show();
+            }
         }
     }
     
