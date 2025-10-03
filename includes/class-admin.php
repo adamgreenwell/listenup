@@ -1379,12 +1379,14 @@ class ListenUp_Admin {
 				$mp3_file_meta = get_post_meta( $result->ID, '_listenup_mp3_file', true );
 				$mp3_url_meta = get_post_meta( $result->ID, '_listenup_mp3_url', true );
 				$mp3_size_meta = get_post_meta( $result->ID, '_listenup_mp3_size', true );
+				$mp3_cloud_path_meta = get_post_meta( $result->ID, '_listenup_mp3_cloud_path', true );
 				
 				if ( ! empty( $mp3_file_meta ) && ! empty( $mp3_url_meta ) ) {
 					$file_info['mp3_exists'] = true;
 					$file_info['mp3_size'] = ! empty( $mp3_size_meta ) ? (int) $mp3_size_meta : 0;
 					$file_info['mp3_cloud_url'] = $mp3_url_meta;
 					$file_info['mp3_cloud_file'] = $mp3_file_meta;
+					$file_info['mp3_cloud_path'] = $mp3_cloud_path_meta;
 				}
 			}
 			
@@ -1538,44 +1540,168 @@ class ListenUp_Admin {
 			wp_send_json_error( array( 'message' => __( 'Invalid post ID.', 'listenup' ) ) );
 		}
 
+		// Get delete type (local, cloud, or both).
+		$delete_type = isset( $_POST['delete_type'] ) ? sanitize_text_field( wp_unslash( $_POST['delete_type'] ) ) : 'both';
+		if ( ! in_array( $delete_type, array( 'local', 'cloud', 'both' ), true ) ) {
+			$delete_type = 'both'; // Default to both for backward compatibility.
+		}
+
+		$deleted_files = array();
+		$errors = array();
+
+		// Delete local files if requested.
+		if ( 'local' === $delete_type || 'both' === $delete_type ) {
+			$local_result = $this->delete_local_audio_files( $post_id );
+			if ( ! empty( $local_result['deleted'] ) ) {
+				$deleted_files = array_merge( $deleted_files, $local_result['deleted'] );
+			}
+			if ( ! empty( $local_result['errors'] ) ) {
+				$errors = array_merge( $errors, $local_result['errors'] );
+			}
+		}
+
+		// Delete cloud files if requested.
+		if ( 'cloud' === $delete_type || 'both' === $delete_type ) {
+			$cloud_result = $this->delete_cloud_audio_files( $post_id );
+			if ( ! empty( $cloud_result['deleted'] ) ) {
+				$deleted_files = array_merge( $deleted_files, $cloud_result['deleted'] );
+			}
+			if ( ! empty( $cloud_result['errors'] ) ) {
+				$errors = array_merge( $errors, $cloud_result['errors'] );
+			}
+		}
+
+		// Prepare response message.
+		if ( empty( $deleted_files ) && empty( $errors ) ) {
+			wp_send_json_error( array( 'message' => __( 'No audio files found for this post.', 'listenup' ) ) );
+		}
+
+		$message = sprintf(
+			/* translators: %s: List of deleted file types */
+			__( 'Audio files deleted successfully (%s).', 'listenup' ),
+			implode( ', ', $deleted_files )
+		);
+
+		if ( ! empty( $errors ) ) {
+			$message .= ' ' . sprintf(
+				/* translators: %s: List of errors */
+				__( 'Some errors occurred: %s', 'listenup' ),
+				implode( ', ', $errors )
+			);
+		}
+
+		wp_send_json_success( array( 'message' => $message ) );
+	}
+
+	/**
+	 * Delete local audio files for a post.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array Result with deleted files and errors.
+	 */
+	private function delete_local_audio_files( $post_id ) {
+		$deleted_files = array();
+		$errors = array();
+
 		// Get audio metadata.
 		$audio_meta = get_post_meta( $post_id, '_listenup_audio', true );
 		if ( empty( $audio_meta ) ) {
-			wp_send_json_error( array( 'message' => __( 'No audio files found for this post.', 'listenup' ) ) );
+			return array( 'deleted' => $deleted_files, 'errors' => $errors );
 		}
 
 		$upload_dir = wp_upload_dir();
 		$cache_dir = $upload_dir['basedir'] . '/listenup-audio';
-		$deleted_files = array();
 
 		// Delete WAV file if exists.
 		if ( isset( $audio_meta['file'] ) ) {
 			$wav_file = $cache_dir . '/' . $audio_meta['file'];
 			if ( file_exists( $wav_file ) ) {
-				wp_delete_file( $wav_file );
-				$deleted_files[] = 'WAV';
+				if ( wp_delete_file( $wav_file ) ) {
+					$deleted_files[] = __( 'Local WAV', 'listenup' );
+				} else {
+					$errors[] = __( 'Failed to delete local WAV file', 'listenup' );
+				}
 			}
 		}
 
-		// Delete MP3 file if exists.
+		// Delete local MP3 file if exists.
 		if ( isset( $audio_meta['mp3_file'] ) ) {
 			$mp3_file = $cache_dir . '/' . $audio_meta['mp3_file'];
 			if ( file_exists( $mp3_file ) ) {
-				wp_delete_file( $mp3_file );
-				$deleted_files[] = 'MP3';
+				if ( wp_delete_file( $mp3_file ) ) {
+					$deleted_files[] = __( 'Local MP3', 'listenup' );
+				} else {
+					$errors[] = __( 'Failed to delete local MP3 file', 'listenup' );
+				}
 			}
 		}
 
-		// Delete post meta.
-		delete_post_meta( $post_id, '_listenup_audio' );
+		// Delete chunked audio files if they exist.
+		$chunked_audio_meta = get_post_meta( $post_id, '_listenup_chunked_audio', true );
+		if ( ! empty( $chunked_audio_meta ) && isset( $chunked_audio_meta['chunks'] ) ) {
+			foreach ( $chunked_audio_meta['chunks'] as $chunk_url ) {
+				// Extract filename from URL.
+				$chunk_filename = basename( $chunk_url );
+				$chunk_file = $cache_dir . '/' . $chunk_filename;
+				if ( file_exists( $chunk_file ) ) {
+					if ( wp_delete_file( $chunk_file ) ) {
+						$deleted_files[] = __( 'Local audio chunk', 'listenup' );
+					} else {
+						$errors[] = __( 'Failed to delete audio chunk', 'listenup' );
+					}
+				}
+			}
+		}
 
-		wp_send_json_success( array(
-			'message' => sprintf(
-				/* translators: %s: List of deleted file types */
-				__( 'Audio files deleted successfully (%s).', 'listenup' ),
-				implode( ', ', $deleted_files )
-			),
-		) );
+		// Delete post meta if all local files are being deleted.
+		delete_post_meta( $post_id, '_listenup_audio' );
+		delete_post_meta( $post_id, '_listenup_chunked_audio' );
+
+		return array( 'deleted' => $deleted_files, 'errors' => $errors );
+	}
+
+	/**
+	 * Delete cloud audio files for a post.
+	 *
+	 * @since 1.0.0
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array Result with deleted files and errors.
+	 */
+	private function delete_cloud_audio_files( $post_id ) {
+		$deleted_files = array();
+		$errors = array();
+
+		// Get cloud storage MP3 path.
+		$mp3_cloud_path = get_post_meta( $post_id, '_listenup_mp3_cloud_path', true );
+		if ( ! empty( $mp3_cloud_path ) ) {
+			// Get cloud storage manager.
+			$cloud_storage = ListenUp_Cloud_Storage_Manager::get_instance();
+			if ( $cloud_storage->is_available() ) {
+				$delete_result = $cloud_storage->delete_file( $mp3_cloud_path );
+				if ( is_wp_error( $delete_result ) ) {
+					$errors[] = sprintf(
+						/* translators: %s: Error message */
+						__( 'Failed to delete cloud MP3: %s', 'listenup' ),
+						$delete_result->get_error_message()
+					);
+				} else {
+					$deleted_files[] = __( 'Cloud MP3', 'listenup' );
+				}
+			} else {
+				$errors[] = __( 'Cloud storage not available', 'listenup' );
+			}
+		}
+
+		// Delete cloud storage meta data.
+		delete_post_meta( $post_id, '_listenup_mp3_url' );
+		delete_post_meta( $post_id, '_listenup_mp3_file' );
+		delete_post_meta( $post_id, '_listenup_mp3_size' );
+		delete_post_meta( $post_id, '_listenup_mp3_cloud_path' );
+
+		return array( 'deleted' => $deleted_files, 'errors' => $errors );
 	}
 
 	/**

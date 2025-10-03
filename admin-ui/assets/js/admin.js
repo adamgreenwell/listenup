@@ -37,6 +37,9 @@
             
             // Cloud storage provider change handler
             this.handleCloudStorageProviderChange();
+            
+            // Delete modal functionality
+            this.initDeleteModal();
         }
         
         toggleApiKeyVisibility() {
@@ -664,15 +667,88 @@
 
             const $btn = $(e.currentTarget);
             const postId = $btn.data('post-id');
-            const $row = $btn.closest('tr');
+            const wavExists = $btn.data('wav-exists') === '1';
+            const mp3Exists = $btn.data('mp3-exists') === '1';
+            const mp3CloudUrl = $btn.data('mp3-cloud-url') || '';
+            const mp3CloudPath = $btn.data('mp3-cloud-path') || '';
 
-            if (!confirm('Are you sure you want to delete the audio files for this post? This action cannot be undone.')) {
+            // Store current button and row for later use
+            this.currentDeleteBtn = $btn;
+            this.currentDeleteRow = $btn.closest('tr');
+            this.currentPostId = postId;
+
+            // Show the delete modal
+            this.showDeleteModal(wavExists, mp3Exists, mp3CloudUrl, mp3CloudPath);
+        }
+
+        showDeleteModal(wavExists, mp3Exists, mp3CloudUrl, mp3CloudPath) {
+            const $modal = $('#listenup-delete-modal');
+            
+            // Clear previous selections
+            $modal.find('input[name="delete-type"]').prop('checked', false);
+            $modal.find('.listenup-delete-option').removeClass('selected');
+            
+            // Show/hide options based on available files
+            const $localOption = $modal.find('[data-delete-type="local"]');
+            const $cloudOption = $modal.find('[data-delete-type="cloud"]');
+            const $bothOption = $modal.find('[data-delete-type="both"]');
+            
+            // Reset all options to visible first
+            $localOption.css('display', 'block');
+            $cloudOption.css('display', 'block');
+            $bothOption.css('display', 'block');
+            
+            // Show local option only if there are local files
+            if (wavExists || (mp3Exists && !mp3CloudUrl)) {
+                $localOption.css('display', 'block');
+            } else {
+                $localOption.css('display', 'none');
+            }
+            
+            // Show cloud option only if there are cloud files
+            if (mp3Exists && mp3CloudUrl) {
+                $cloudOption.css('display', 'block');
+            } else {
+                $cloudOption.css('display', 'none');
+            }
+            
+            // Show both option only if there are both local and cloud files
+            if ((wavExists || (mp3Exists && !mp3CloudUrl)) && (mp3Exists && mp3CloudUrl)) {
+                $bothOption.css('display', 'block');
+            } else {
+                $bothOption.css('display', 'none');
+            }
+            
+            // Disable confirm button initially
+            $modal.find('.listenup-modal-confirm').prop('disabled', true);
+            
+            // Show modal
+            $modal.show();
+        }
+
+        hideDeleteModal() {
+            const $modal = $('#listenup-delete-modal');
+            $modal.hide();
+            this.currentDeleteBtn = null;
+            this.currentDeleteRow = null;
+            this.currentPostId = null;
+        }
+
+        performDeleteAudio(deleteType) {
+            if (!this.currentPostId || !deleteType) {
                 return;
             }
+
+            const $btn = this.currentDeleteBtn;
+            const $row = this.currentDeleteRow;
+            const postId = this.currentPostId;
 
             // Disable button and show loading state
             const originalText = $btn.text();
             $btn.prop('disabled', true).text('Deleting...');
+
+            // Hide modal
+            this.hideDeleteModal();
 
             // Make AJAX request
             $.ajax({
@@ -681,6 +757,7 @@
                 data: {
                     action: 'listenup_delete_audio',
                     post_id: postId,
+                    delete_type: deleteType,
                     nonce: listenupAdmin.nonce
                 },
                 success: (response) => {
@@ -709,6 +786,68 @@
                     this.showMessage('Network error occurred during deletion.', 'error');
                     $btn.prop('disabled', false).text(originalText);
                 }
+            });
+        }
+
+        initDeleteModal() {
+            const self = this;
+            
+            // Handle delete option clicks
+            $(document).on('click', '.listenup-delete-option', function(e) {
+                e.preventDefault();
+                
+                // Remove selection from all options
+                $('.listenup-delete-option').removeClass('selected');
+                
+                // Add selection to clicked option
+                $(this).addClass('selected');
+                
+                // Check the radio button
+                $(this).find('input[type="radio"]').prop('checked', true);
+                
+                // Enable confirm button
+                $('.listenup-modal-confirm').prop('disabled', false);
+            });
+            
+            // Handle radio button changes
+            $(document).on('change', 'input[name="delete-type"]', function() {
+                const $option = $(this).closest('.listenup-delete-option');
+                
+                // Remove selection from all options
+                $('.listenup-delete-option').removeClass('selected');
+                
+                // Add selection to current option
+                $option.addClass('selected');
+                
+                // Enable confirm button
+                $('.listenup-modal-confirm').prop('disabled', false);
+            });
+            
+            // Handle modal cancel
+            $(document).on('click', '.listenup-modal-cancel', function(e) {
+                e.preventDefault();
+                self.hideDeleteModal();
+            });
+            
+            // Handle modal backdrop click
+            $(document).on('click', '.listenup-modal-backdrop', function(e) {
+                e.preventDefault();
+                self.hideDeleteModal();
+            });
+            
+            // Handle modal confirm
+            $(document).on('click', '.listenup-modal-confirm', function(e) {
+                e.preventDefault();
+                
+                const deleteType = $('input[name="delete-type"]:checked').val();
+                if (deleteType) {
+                    self.performDeleteAudio(deleteType);
+                }
+            });
+            
+            // Prevent modal content clicks from closing modal
+            $(document).on('click', '.listenup-modal-content', function(e) {
+                e.stopPropagation();
             });
         }
         

@@ -205,6 +205,9 @@ GPL v2 or later
 
 ## Changelog
 
+### 1.3.21
+* Add ability to delete cloud audio as well as local audio files
+
 ### 1.3.2
 * Improve frontend player user experience when pre-roll audio is present
 
