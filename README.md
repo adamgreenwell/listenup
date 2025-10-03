@@ -206,12 +206,38 @@ GPL v2 or later
 ## Changelog
 
 ### 1.3.2
-- Updated pre-roll feature to work with cloud-stored post audio
+* Improve frontend player user experience when pre-roll audio is present
 
 ### 1.3.11
-- Added cloud storage support (AWS S3, Cloudflare R2, Google Cloud Storage)
-- Added Composer dependencies for cloud SDKs
-- Improved multi-segment audio conversion
-- Added site-based file organization in cloud storage
-- Enhanced error handling and logging
+* Add feature to generate pre-roll audio
+
+### 1.3.1
+* Add "autoplay" feature to audio library shortcode
+
+### 1.3.0
+* Restrict download to logged-in users or block all downloads completely
+* Implemented leech protection (requires server configuration)
+
+### 1.2.01
+* Minor frontend player presentation improvements
+
+### 1.2.0
+* Added ability to generate audio for posts that do not fit in the Murf.ai API request length
+
+### 1.1.1
+* Improved debug logging
+
+## 1.1.0
+* Users can select a default voice and style
+* Voices can now be previewed
+
+### 1.0.0
+* Initial release
+* Murf.ai API integration
+* Audio caching system
+* Meta box for manual generation
+* Automatic placement options
+* Shortcode support
+* Accessibility features
+* Mobile responsive design
 
