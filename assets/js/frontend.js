@@ -168,19 +168,11 @@
                 // Show loading state
                 this.showLoadingState();
                 
-                // Concatenate audio chunks
-                const result = await this.concatenator.concatenateAudioChunks(this.audioChunks);
+                // Use sequential playback for chunked audio (pre-roll + content)
+                this.setupSequentialPlaybackForChunks();
                 
-                if (result.success) {
-                    // Update audio source to use concatenated audio
-                    this.concatenatedBlobUrl = result.blobUrl;
-                    this.audio.src = result.blobUrl;
-                    
-                    // Hide loading state
-                    this.hideLoadingState();
-                } else {
-                    throw new Error('Audio concatenation failed');
-                }
+                // Hide loading state
+                this.hideLoadingState();
                 
             } catch (error) {
                 console.error('ListenUp: Error handling chunked audio:', error);
@@ -190,31 +182,25 @@
         }
 
         /**
-         * Handle cloud storage audio with pre-roll using client-side concatenation
+         * Handle cloud storage audio with pre-roll using sequential playback
          */
         async handleCloudStorageWithPreroll() {
             try {
                 // Show loading state
                 this.showLoadingState();
                 
-                // Get pre-roll URL and cloud URL for client-side concatenation
+                // Get pre-roll URL for sequential playback
                 const postId = this.container.data('post-id');
                 const preRollUrl = await this.getPreRollUrl(postId);
                 
                 if (preRollUrl) {
-                    // Use client-side concatenation with pre-roll + cloud audio
-                    const audioUrls = [preRollUrl, this.cloudUrl];
-                    const result = await this.concatenator.concatenateAudioChunks(audioUrls);
-                    
-                    if (result.success) {
-                        this.concatenatedBlobUrl = result.blobUrl;
-                        this.audio.src = result.blobUrl;
-                        this.hideLoadingState();
-                    } else {
-                        throw new Error('Client-side concatenation failed');
-                    }
+                    // Set up sequential playback: pre-roll first, then main content
+                    this.setupSequentialPlayback(preRollUrl, this.cloudUrl);
+                    this.hideLoadingState();
                 } else {
-                    throw new Error('Failed to get pre-roll URL');
+                    // No pre-roll, just play the main content
+                    this.audio.src = this.cloudUrl;
+                    this.hideLoadingState();
                 }
                 
             } catch (error) {
@@ -225,7 +211,133 @@
         }
 
         /**
-         * Get pre-roll URL for client-side concatenation
+         * Set up sequential playback: pre-roll first, then main content
+         */
+        setupSequentialPlayback(preRollUrl, mainContentUrl) {
+            // Store URLs for sequential playback
+            this.preRollUrl = preRollUrl;
+            this.mainContentUrl = mainContentUrl;
+            this.isSequentialPlayback = true;
+            
+            // Pre-load main content to get its duration for display
+            const tempAudio = new Audio(mainContentUrl);
+            tempAudio.addEventListener('loadedmetadata', () => {
+                // Set the duration display to show main content duration (never show pre-roll duration)
+                this.durationDisplay.text(this.formatTime(tempAudio.duration));
+            });
+            tempAudio.load();
+            
+            // Set up the audio source (pre-roll) but don't auto-play
+            this.audio.src = preRollUrl;
+            this.audio.load();
+            
+            // Listen for pre-roll to finish, then switch to main content
+            this.audio.addEventListener('ended', () => {
+                console.log('ListenUp: Pre-roll finished, switching to main content');
+                this.audio.src = mainContentUrl;
+                this.audio.load();
+                
+                // Wait for the new audio to load, then continue playing
+                this.audio.addEventListener('loadedmetadata', () => {
+                    // Continue playing since user already gave consent
+                    this.audio.play().then(() => {
+                        // Maintain playing state during sequential playback
+                        this.isPlaying = true;
+                        this.updatePlayButton();
+                    }).catch((error) => {
+                        console.error('ListenUp: Error playing main content after pre-roll:', error);
+                    });
+                }, { once: true });
+            }, { once: true });
+        }
+
+        /**
+         * Set up sequential playback for chunked audio (pre-roll + content chunks)
+         */
+        setupSequentialPlaybackForChunks() {
+            if (!this.audioChunks || this.audioChunks.length === 0) {
+                console.error('ListenUp: No audio chunks available for sequential playback');
+                return;
+            }
+
+            // First chunk is pre-roll, rest are content
+            const preRollUrl = this.audioChunks[0];
+            const contentChunks = this.audioChunks.slice(1);
+            
+            // Store for sequential playback
+            this.contentChunks = contentChunks;
+            this.isSequentialPlayback = true;
+            
+            // Calculate total duration of content chunks (excluding pre-roll) for display
+            this.calculateTotalContentDuration(contentChunks);
+            
+            // Set up pre-roll source but don't auto-play
+            this.audio.src = preRollUrl;
+            this.audio.load();
+            
+            // Listen for pre-roll to finish, then play content chunks sequentially
+            this.audio.addEventListener('ended', () => {
+                console.log('ListenUp: Pre-roll finished, playing content chunks');
+                this.playContentChunksSequentially(contentChunks, 0);
+            }, { once: true });
+        }
+
+        /**
+         * Calculate total duration of content chunks
+         */
+        calculateTotalContentDuration(contentChunks) {
+            let totalDuration = 0;
+            let loadedCount = 0;
+            
+            contentChunks.forEach((chunkUrl, index) => {
+                const tempAudio = new Audio(chunkUrl);
+                tempAudio.addEventListener('loadedmetadata', () => {
+                    totalDuration += tempAudio.duration;
+                    loadedCount++;
+                    
+                    // When all chunks are loaded, update the duration display
+                    if (loadedCount === contentChunks.length) {
+                        this.durationDisplay.text(this.formatTime(totalDuration));
+                    }
+                });
+                tempAudio.load();
+            });
+        }
+
+        /**
+         * Play content chunks sequentially
+         */
+        playContentChunksSequentially(chunks, index) {
+            if (index >= chunks.length) {
+                console.log('ListenUp: All content chunks finished');
+                return;
+            }
+
+            // Set up current chunk
+            this.audio.src = chunks[index];
+            this.audio.load();
+            
+            // Listen for current chunk to finish, then play next
+            this.audio.addEventListener('ended', () => {
+                console.log(`ListenUp: Content chunk ${index + 1} finished, playing next`);
+                this.playContentChunksSequentially(chunks, index + 1);
+            }, { once: true });
+            
+            // Wait for the new audio to load, then continue playing
+            this.audio.addEventListener('loadedmetadata', () => {
+                // Continue playing since user already gave consent
+                this.audio.play().then(() => {
+                    // Maintain playing state during sequential playback
+                    this.isPlaying = true;
+                    this.updatePlayButton();
+                }).catch((error) => {
+                    console.error('ListenUp: Error playing content chunk:', error);
+                });
+            }, { once: true });
+        }
+
+        /**
+         * Get pre-roll URL for sequential playback
          */
         async getPreRollUrl(postId) {
             try {
@@ -250,12 +362,12 @@
                 if (result.success && result.data.url) {
                     return result.data.url;
                 } else {
-                    throw new Error(result.data?.message || 'Failed to get pre-roll URL');
+                    return null; // No pre-roll available
                 }
                 
             } catch (error) {
                 console.error('ListenUp: Error getting pre-roll URL:', error);
-                throw error;
+                return null; // No pre-roll available
             }
         }
 
