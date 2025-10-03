@@ -230,7 +230,13 @@ function listenup_format_bytes( $bytes ) {
 								<?php endif; ?>
 								
 								<?php if ( $file_info['wav_exists'] || $file_info['mp3_exists'] ) : ?>
-									<button class="button button-small listenup-delete-btn" data-post-id="<?php echo esc_attr( $post_id ); ?>" title="<?php esc_attr_e( 'Delete Audio', 'listenup' ); ?>">
+									<button class="button button-small listenup-delete-btn" 
+											data-post-id="<?php echo esc_attr( $post_id ); ?>" 
+											data-wav-exists="<?php echo esc_attr( $file_info['wav_exists'] ? '1' : '0' ); ?>"
+											data-mp3-exists="<?php echo esc_attr( $file_info['mp3_exists'] ? '1' : '0' ); ?>"
+											data-mp3-cloud-url="<?php echo esc_attr( isset( $file_info['mp3_cloud_url'] ) ? $file_info['mp3_cloud_url'] : '' ); ?>"
+											data-mp3-cloud-path="<?php echo esc_attr( isset( $file_info['mp3_cloud_path'] ) ? $file_info['mp3_cloud_path'] : '' ); ?>"
+											title="<?php esc_attr_e( 'Delete Audio', 'listenup' ); ?>">
 										<?php esc_html_e( 'Delete', 'listenup' ); ?>
 									</button>
 								<?php endif; ?>
@@ -282,6 +288,57 @@ function listenup_format_bytes( $bytes ) {
 	<?php endif; ?>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div id="listenup-delete-modal" class="listenup-modal" style="display: none;">
+	<div class="listenup-modal-backdrop" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9998;"></div>
+	<div class="listenup-modal-content" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 20px; border-radius: 4px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 9999; max-width: 500px; width: 90%;">
+		<h2 style="margin-top: 0; color: #d63638;"><?php esc_html_e( 'Delete Audio Files', 'listenup' ); ?></h2>
+		<p><?php esc_html_e( 'Choose what you want to delete:', 'listenup' ); ?></p>
+		
+		<div class="listenup-delete-options">
+			<div class="listenup-delete-option" data-delete-type="local">
+				<label>
+					<input type="radio" name="delete-type" value="local">
+					<strong><?php esc_html_e( 'Local Files Only', 'listenup' ); ?></strong>
+					<div class="option-description">
+						<?php esc_html_e( 'Delete files stored on this server only', 'listenup' ); ?>
+					</div>
+				</label>
+			</div>
+			
+			<div class="listenup-delete-option" data-delete-type="cloud">
+				<label>
+					<input type="radio" name="delete-type" value="cloud">
+					<strong><?php esc_html_e( 'Cloud Storage Only', 'listenup' ); ?></strong>
+					<div class="option-description">
+						<?php esc_html_e( 'Delete files from cloud storage only', 'listenup' ); ?>
+					</div>
+				</label>
+			</div>
+			
+			<div class="listenup-delete-option" data-delete-type="both">
+				<label>
+					<input type="radio" name="delete-type" value="both">
+					<strong><?php esc_html_e( 'Both Local and Cloud', 'listenup' ); ?></strong>
+					<div class="option-description">
+						<?php esc_html_e( 'Delete all audio files completely', 'listenup' ); ?>
+					</div>
+				</label>
+			</div>
+		</div>
+		
+		
+		<div style="text-align: right; margin-top: 20px;">
+			<button type="button" class="button listenup-modal-cancel" style="margin-right: 10px;">
+				<?php esc_html_e( 'Cancel', 'listenup' ); ?>
+			</button>
+			<button type="button" class="button button-primary listenup-modal-confirm" style="background: #d63638; border-color: #d63638;">
+				<?php esc_html_e( 'Delete', 'listenup' ); ?>
+			</button>
+		</div>
+	</div>
+</div>
+
 <style>
 	.listenup-stats-dashboard {
 		animation: fadeIn 0.3s ease-in;
@@ -310,6 +367,65 @@ function listenup_format_bytes( $bytes ) {
 	
 	#select-all {
 		cursor: pointer;
+	}
+	
+	/* Modal styles */
+	.listenup-delete-options {
+		margin: 20px 0;
+	}
+	
+	.listenup-delete-option {
+		display: block !important;
+		margin: 10px 0;
+		padding: 15px;
+		border: 1px solid #c3c4c7;
+		border-radius: 4px;
+		cursor: pointer;
+		transition: background-color 0.2s;
+	}
+	
+	.listenup-delete-option:hover {
+		background-color: #f0f0f1;
+	}
+	
+	.listenup-delete-option.selected {
+		background-color: #e3f2fd;
+		border-color: #2271b1;
+	}
+	
+	.listenup-delete-option label {
+		display: block;
+		cursor: pointer;
+		margin: 0;
+	}
+	
+	.listenup-delete-option input[type="radio"] {
+		margin: 0 10px 0 0;
+	}
+	
+	.listenup-delete-option .option-description {
+		color: #646970;
+		font-size: 13px;
+		margin-top: 5px;
+	}
+	
+	.listenup-modal-backdrop {
+		cursor: pointer;
+	}
+	
+	.listenup-modal-content {
+		cursor: default;
+	}
+	
+	.listenup-modal-confirm:disabled {
+		background: #c3c4c7 !important;
+		border-color: #c3c4c7 !important;
+		cursor: not-allowed;
+	}
+	
+	/* Debug: Ensure options are visible by default */
+	.listenup-delete-options .listenup-delete-option {
+		display: block !important;
 	}
 </style>
 
