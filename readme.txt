@@ -4,7 +4,7 @@ Tags: audio, text-to-speech, accessibility, tts
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.21
+Stable tag: 1.3.22
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -124,6 +124,9 @@ location ~* ^/wp-content/uploads/listenup-audio/ {
 After implementing server-level blocks, audio will still play normally through the WordPress player because the plugin reads files directly from the filesystem, bypassing the web server's URL routing entirely.
 
 == Changelog ==
+
+= 1.3.22 =
+* Fix autoplay feature in audio library
 
 = 1.3.21 =
 * Add ability to delete cloud audio as well as local audio files

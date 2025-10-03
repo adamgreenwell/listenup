@@ -205,6 +205,9 @@ GPL v2 or later
 
 ## Changelog
 
+### 1.3.22
+* Fix autoplay feature in audio library
+
 ### 1.3.21
 * Add ability to delete cloud audio as well as local audio files
 
