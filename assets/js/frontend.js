@@ -248,6 +248,12 @@
                         console.error('ListenUp: Error playing main content after pre-roll:', error);
                     });
                 }, { once: true });
+                
+                // Listen for main content to finish and trigger library autoplay
+                this.audio.addEventListener('ended', () => {
+                    console.log('ListenUp: Main content finished after pre-roll');
+                    this.onEnded();
+                }, { once: true });
             }, { once: true });
         }
 
@@ -310,6 +316,8 @@
         playContentChunksSequentially(chunks, index) {
             if (index >= chunks.length) {
                 console.log('ListenUp: All content chunks finished');
+                // Call onEnded to trigger library autoplay functionality
+                this.onEnded();
                 return;
             }
 
