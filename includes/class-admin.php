@@ -53,8 +53,6 @@ class ListenUp_Admin {
 		add_action( 'wp_ajax_listenup_preview_voice', array( $this, 'ajax_preview_voice' ) );
 		add_action( 'wp_ajax_listenup_generate_preroll', array( $this, 'ajax_generate_preroll' ) );
 		add_action( 'wp_ajax_listenup_save_preroll', array( $this, 'ajax_save_preroll' ) );
-		add_action( 'wp_ajax_listenup_concatenate_cloud_audio', array( $this, 'ajax_concatenate_cloud_audio' ) );
-		add_action( 'wp_ajax_nopriv_listenup_concatenate_cloud_audio', array( $this, 'ajax_concatenate_cloud_audio' ) );
 		add_action( 'wp_ajax_listenup_get_preroll_url', array( $this, 'ajax_get_preroll_url' ) );
 		add_action( 'wp_ajax_nopriv_listenup_get_preroll_url', array( $this, 'ajax_get_preroll_url' ) );
 		add_action( 'wp_ajax_listenup_test_conversion_api', array( $this, 'ajax_test_conversion_api' ) );
