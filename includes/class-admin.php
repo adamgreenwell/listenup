@@ -1000,7 +1000,7 @@ class ListenUp_Admin {
 	public function delete_wav_field_callback() {
 		$options = get_option( 'listenup_options' );
 		$delete_wav = isset( $options['delete_wav_after_conversion'] ) ? $options['delete_wav_after_conversion'] : false;
-		
+
 		printf(
 			'<input type="checkbox" id="delete_wav_after_conversion" name="listenup_options[delete_wav_after_conversion]" value="1" %s />',
 			checked( $delete_wav, true, false )
@@ -1788,11 +1788,26 @@ class ListenUp_Admin {
 					);
 				} else {
 					$deleted_files[] = __( 'Cloud MP3', 'listenup' );
-				}
-			} else {
-				$errors[] = __( 'Cloud storage not available', 'listenup' );
-			}
-		}
+
+					// Only delete cloud-specific metadata.
+					delete_post_meta( $post_id, '_listenup_mp3_cloud_path' );
+
+					// Update the _listenup_audio meta to remove cloud URL but keep local file info.
+					$audio_meta = get_post_meta( $post_id, '_listenup_audio', true );
+					if ( is_array( $audio_meta ) ) {
+						// Remove only cloud-related fields from audio meta.
+						unset( $audio_meta['mp3_cloud_url'] );
+						unset( $audio_meta['mp3_cloud_path'] );
+
+						// Check if there's a local MP3 file - if not, remove MP3 references.
+						$upload_dir = wp_upload_dir();
+						$cache_dir = $upload_dir['basedir'] . '/listenup-audio';
+						$local_mp3_exists = false;
+
+						if ( isset( $audio_meta['mp3_file'] ) ) {
+							$local_mp3_path = $cache_dir . '/' . $audio_meta['mp3_file'];
+							$local_mp3_exists = file_exists( $local_mp3_path );
+						}
 
 		// Delete cloud storage meta data.
 		delete_post_meta( $post_id, '_listenup_mp3_url' );
