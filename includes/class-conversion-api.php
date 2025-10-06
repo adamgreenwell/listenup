@@ -25,7 +25,7 @@ class ListenUp_Conversion_API {
 	private static $instance = null;
 
 	/**
-	 * API endpoint for single file WAV to MP3 conversion.
+	 * API endpoint for dynamic audio transcoding.
 	 *
 	 * @var string
 	 */
@@ -79,7 +79,7 @@ class ListenUp_Conversion_API {
 		$base_url = rtrim( $base_url, '/' );
 		
 		// Set endpoints for different operations.
-		$this->api_endpoint = $base_url . '/transcode/wav-to-mp3';
+		$this->api_endpoint = $base_url . '/transcode/dynamic';
 		$this->join_endpoint = $base_url . '/process/join-and-transcode';
 		
 		// Set API key from settings.
@@ -139,11 +139,23 @@ class ListenUp_Conversion_API {
 		// Validate API configuration.
 		if ( empty( $this->api_key ) ) {
 			$debug->error( 'Conversion API key not configured' );
-			return new WP_Error( 
-				'api_key_missing', 
-				__( 'Conversion API key is not configured. Please add it in ListenUp settings.', 'listenup' ) 
+			return new WP_Error(
+				'api_key_missing',
+				__( 'Conversion API key is not configured. Please add it in ListenUp settings.', 'listenup' )
 			);
 		}
+
+		// Load conversion settings.
+		$options = get_option( 'listenup_options' );
+		$mp3_bitrate = isset( $options['mp3_bitrate'] ) && ! empty( $options['mp3_bitrate'] )
+			? $options['mp3_bitrate']
+			: '';
+		$apply_loudnorm = isset( $options['apply_loudnorm'] )
+			? (bool) $options['apply_loudnorm']
+			: true;
+		$loudnorm_params = isset( $options['loudnorm_params'] ) && ! empty( $options['loudnorm_params'] )
+			? $options['loudnorm_params']
+			: '';
 
 		// Validate file exists.
 		if ( ! file_exists( $wav_file_path ) ) {
@@ -176,6 +188,27 @@ class ListenUp_Conversion_API {
 		$body .= 'Content-Disposition: form-data; name="file"; filename="' . $wav_filename . '"' . "\r\n";
 		$body .= 'Content-Type: audio/wav' . "\r\n\r\n";
 		$body .= $file_contents . "\r\n";
+		$body .= '--' . $boundary . "\r\n";
+		$body .= 'Content-Disposition: form-data; name="output_format"' . "\r\n\r\n";
+		$body .= 'mp3' . "\r\n";
+		$body .= '--' . $boundary . "\r\n";
+		$body .= 'Content-Disposition: form-data; name="apply_loudnorm"' . "\r\n\r\n";
+		$body .= $apply_loudnorm ? 'true' : 'false';
+		$body .= "\r\n";
+
+		// Add optional parameters if set.
+		if ( ! empty( $mp3_bitrate ) ) {
+			$body .= '--' . $boundary . "\r\n";
+			$body .= 'Content-Disposition: form-data; name="bitrate"' . "\r\n\r\n";
+			$body .= $mp3_bitrate . "\r\n";
+		}
+
+		if ( ! empty( $loudnorm_params ) && $apply_loudnorm ) {
+			$body .= '--' . $boundary . "\r\n";
+			$body .= 'Content-Disposition: form-data; name="loudnorm_params"' . "\r\n\r\n";
+			$body .= $loudnorm_params . "\r\n";
+		}
+
 		$body .= '--' . $boundary . '--';
 
 		// Prepare request headers.
@@ -334,11 +367,23 @@ class ListenUp_Conversion_API {
 		// Validate API configuration.
 		if ( empty( $this->api_key ) ) {
 			$debug->error( 'Conversion API key not configured' );
-			return new WP_Error( 
-				'api_key_missing', 
-				__( 'Conversion API key is not configured. Please add it in ListenUp settings.', 'listenup' ) 
+			return new WP_Error(
+				'api_key_missing',
+				__( 'Conversion API key is not configured. Please add it in ListenUp settings.', 'listenup' )
 			);
 		}
+
+		// Load conversion settings.
+		$options = get_option( 'listenup_options' );
+		$mp3_bitrate = isset( $options['mp3_bitrate'] ) && ! empty( $options['mp3_bitrate'] )
+			? $options['mp3_bitrate']
+			: '';
+		$apply_loudnorm = isset( $options['apply_loudnorm'] )
+			? (bool) $options['apply_loudnorm']
+			: true;
+		$loudnorm_params = isset( $options['loudnorm_params'] ) && ! empty( $options['loudnorm_params'] )
+			? $options['loudnorm_params']
+			: '';
 
 		// Update post meta to show conversion in progress.
 		$this->update_conversion_status( $post_id, 'converting' );
@@ -455,11 +500,22 @@ class ListenUp_Conversion_API {
 
 		$payload = array(
 			'files_to_join' => $segment_urls,
+			'output_format' => 'mp3',
+			'apply_loudnorm' => $apply_loudnorm,
 			'metadata' => array(
 				'post_id' => $post_id,
 				'segment_count' => count( $segment_files ),
 			),
 		);
+
+		// Add optional parameters if set.
+		if ( ! empty( $mp3_bitrate ) ) {
+			$payload['bitrate'] = $mp3_bitrate;
+		}
+
+		if ( ! empty( $loudnorm_params ) && $apply_loudnorm ) {
+			$payload['loudnorm_params'] = $loudnorm_params;
+		}
 
 		// Prepare request headers for JSON endpoint.
 		$headers = array(
