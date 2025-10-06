@@ -764,18 +764,12 @@
                     if (response.success) {
                         // Show success message
                         this.showMessage(response.data.message, 'success');
-                        
-                        // Fade out and remove the row
-                        $row.fadeOut(500, function() {
-                            $(this).remove();
-                            
-                            // Check if there are any rows left
-                            const remainingRows = $('table.wp-list-table tbody tr').length;
-                            if (remainingRows === 0) {
-                                // Reload to show empty state
-                                location.reload();
-                            }
-                        });
+
+                        // Reload the page to show updated state
+                        // This ensures the row only disappears if no audio files remain
+                        setTimeout(function() {
+                            location.reload();
+                        }, 1000);
                     } else {
                         const errorMessage = response.data?.message || 'Unknown error';
                         this.showMessage('Delete failed: ' + errorMessage, 'error');
