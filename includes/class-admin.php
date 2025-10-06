@@ -1809,11 +1809,27 @@ class ListenUp_Admin {
 							$local_mp3_exists = file_exists( $local_mp3_path );
 						}
 
-		// Delete cloud storage meta data.
-		delete_post_meta( $post_id, '_listenup_mp3_url' );
-		delete_post_meta( $post_id, '_listenup_mp3_file' );
-		delete_post_meta( $post_id, '_listenup_mp3_size' );
-		delete_post_meta( $post_id, '_listenup_mp3_cloud_path' );
+						// If no local MP3 file exists, remove MP3 metadata entries.
+						if ( ! $local_mp3_exists ) {
+							unset( $audio_meta['mp3_url'] );
+							unset( $audio_meta['mp3_file'] );
+							unset( $audio_meta['mp3_size'] );
+							unset( $audio_meta['mp3_created'] );
+
+							// Also delete the separate MP3 metadata fields.
+							delete_post_meta( $post_id, '_listenup_mp3_url' );
+							delete_post_meta( $post_id, '_listenup_mp3_file' );
+							delete_post_meta( $post_id, '_listenup_mp3_size' );
+						}
+
+						// Update the audio meta.
+						update_post_meta( $post_id, '_listenup_audio', $audio_meta );
+					}
+				}
+			} else {
+				$errors[] = __( 'Cloud storage not available', 'listenup' );
+			}
+		}
 
 		return array( 'deleted' => $deleted_files, 'errors' => $errors );
 	}
