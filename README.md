@@ -205,6 +205,10 @@ GPL v2 or later
 
 ## Changelog
 
+### 1.4.0
+* Add option to specify conversion output bitrate
+* Add option to apply normalization with parameters to conversion process
+
 ### 1.3.22
 * Fix autoplay feature in audio library
 
