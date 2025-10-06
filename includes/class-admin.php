@@ -235,6 +235,33 @@ class ListenUp_Admin {
 			'listenup_conversion_section'
 		);
 
+		add_settings_field(
+			'mp3_bitrate',
+			/* translators: MP3 bitrate field label */
+			__( 'MP3 Bitrate', 'listenup' ),
+			array( $this, 'mp3_bitrate_field_callback' ),
+			'listenup-settings',
+			'listenup_conversion_section'
+		);
+
+		add_settings_field(
+			'apply_loudnorm',
+			/* translators: Apply loudness normalization field label */
+			__( 'Audio Normalization', 'listenup' ),
+			array( $this, 'apply_loudnorm_field_callback' ),
+			'listenup-settings',
+			'listenup_conversion_section'
+		);
+
+		add_settings_field(
+			'loudnorm_params',
+			/* translators: Loudness normalization parameters field label */
+			__( 'Normalization Parameters', 'listenup' ),
+			array( $this, 'loudnorm_params_field_callback' ),
+			'listenup-settings',
+			'listenup_conversion_section'
+		);
+
 		add_settings_section(
 			'listenup_cloud_storage_section',
 			/* translators: Settings section title */
@@ -341,6 +368,21 @@ class ListenUp_Admin {
 
 		if ( isset( $input['delete_wav_after_conversion'] ) ) {
 			$sanitized['delete_wav_after_conversion'] = (bool) $input['delete_wav_after_conversion'];
+		}
+
+		if ( isset( $input['mp3_bitrate'] ) ) {
+			$sanitized['mp3_bitrate'] = sanitize_text_field( $input['mp3_bitrate'] );
+		}
+
+		if ( isset( $input['apply_loudnorm'] ) ) {
+			$sanitized['apply_loudnorm'] = (bool) $input['apply_loudnorm'];
+		} else {
+			// Default to true if not set (checkbox unchecked means not in POST).
+			$sanitized['apply_loudnorm'] = false;
+		}
+
+		if ( isset( $input['loudnorm_params'] ) ) {
+			$sanitized['loudnorm_params'] = sanitize_text_field( $input['loudnorm_params'] );
 		}
 
 		// Cloud storage settings.
@@ -958,7 +1000,7 @@ class ListenUp_Admin {
 	public function delete_wav_field_callback() {
 		$options = get_option( 'listenup_options' );
 		$delete_wav = isset( $options['delete_wav_after_conversion'] ) ? $options['delete_wav_after_conversion'] : false;
-		
+
 		printf(
 			'<input type="checkbox" id="delete_wav_after_conversion" name="listenup_options[delete_wav_after_conversion]" value="1" %s />',
 			checked( $delete_wav, true, false )
@@ -969,6 +1011,63 @@ class ListenUp_Admin {
 		</label>
 		<p class="description">
 			<?php esc_html_e( 'This will save storage space by removing the larger WAV files once MP3 conversion is complete.', 'listenup' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render MP3 bitrate field.
+	 */
+	public function mp3_bitrate_field_callback() {
+		$options = get_option( 'listenup_options' );
+		$bitrate = isset( $options['mp3_bitrate'] ) ? $options['mp3_bitrate'] : '';
+
+		printf(
+			'<input type="text" id="mp3_bitrate" name="listenup_options[mp3_bitrate]" value="%s" class="regular-text" placeholder="128k" />',
+			esc_attr( $bitrate )
+		);
+		?>
+		<p class="description">
+			<?php esc_html_e( 'MP3 output bitrate (e.g., 96k, 128k, 192k, 256k, 320k). Leave blank to use the conversion service default.', 'listenup' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render apply loudness normalization field.
+	 */
+	public function apply_loudnorm_field_callback() {
+		$options = get_option( 'listenup_options' );
+		$apply_loudnorm = isset( $options['apply_loudnorm'] ) ? $options['apply_loudnorm'] : true;
+
+		printf(
+			'<input type="checkbox" id="apply_loudnorm" name="listenup_options[apply_loudnorm]" value="1" %s />',
+			checked( $apply_loudnorm, true, false )
+		);
+		?>
+		<label for="apply_loudnorm">
+			<?php esc_html_e( 'Apply loudness normalization (EBU R 128 standard)', 'listenup' ); ?>
+		</label>
+		<p class="description">
+			<?php esc_html_e( 'Normalizes audio volume levels across all converted files. Recommended for consistent playback experience.', 'listenup' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Render loudness normalization parameters field.
+	 */
+	public function loudnorm_params_field_callback() {
+		$options = get_option( 'listenup_options' );
+		$loudnorm_params = isset( $options['loudnorm_params'] ) ? $options['loudnorm_params'] : '';
+
+		printf(
+			'<input type="text" id="loudnorm_params" name="listenup_options[loudnorm_params]" value="%s" class="large-text" placeholder="I=-20:LRA=10:TP=-2" />',
+			esc_attr( $loudnorm_params )
+		);
+		?>
+		<p class="description">
+			<?php esc_html_e( 'Custom FFmpeg loudnorm filter parameters. Leave blank to use the service default. Only applies when normalization is enabled.', 'listenup' ); ?>
 		</p>
 		<?php
 	}
@@ -1689,17 +1788,48 @@ class ListenUp_Admin {
 					);
 				} else {
 					$deleted_files[] = __( 'Cloud MP3', 'listenup' );
+
+					// Only delete cloud-specific metadata.
+					delete_post_meta( $post_id, '_listenup_mp3_cloud_path' );
+
+					// Update the _listenup_audio meta to remove cloud URL but keep local file info.
+					$audio_meta = get_post_meta( $post_id, '_listenup_audio', true );
+					if ( is_array( $audio_meta ) ) {
+						// Remove only cloud-related fields from audio meta.
+						unset( $audio_meta['mp3_cloud_url'] );
+						unset( $audio_meta['mp3_cloud_path'] );
+
+						// Check if there's a local MP3 file - if not, remove MP3 references.
+						$upload_dir = wp_upload_dir();
+						$cache_dir = $upload_dir['basedir'] . '/listenup-audio';
+						$local_mp3_exists = false;
+
+						if ( isset( $audio_meta['mp3_file'] ) ) {
+							$local_mp3_path = $cache_dir . '/' . $audio_meta['mp3_file'];
+							$local_mp3_exists = file_exists( $local_mp3_path );
+						}
+
+						// If no local MP3 file exists, remove MP3 metadata entries.
+						if ( ! $local_mp3_exists ) {
+							unset( $audio_meta['mp3_url'] );
+							unset( $audio_meta['mp3_file'] );
+							unset( $audio_meta['mp3_size'] );
+							unset( $audio_meta['mp3_created'] );
+
+							// Also delete the separate MP3 metadata fields.
+							delete_post_meta( $post_id, '_listenup_mp3_url' );
+							delete_post_meta( $post_id, '_listenup_mp3_file' );
+							delete_post_meta( $post_id, '_listenup_mp3_size' );
+						}
+
+						// Update the audio meta.
+						update_post_meta( $post_id, '_listenup_audio', $audio_meta );
+					}
 				}
 			} else {
 				$errors[] = __( 'Cloud storage not available', 'listenup' );
 			}
 		}
-
-		// Delete cloud storage meta data.
-		delete_post_meta( $post_id, '_listenup_mp3_url' );
-		delete_post_meta( $post_id, '_listenup_mp3_file' );
-		delete_post_meta( $post_id, '_listenup_mp3_size' );
-		delete_post_meta( $post_id, '_listenup_mp3_cloud_path' );
 
 		return array( 'deleted' => $deleted_files, 'errors' => $errors );
 	}

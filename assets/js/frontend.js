@@ -525,6 +525,11 @@
         }
         
         updateDuration() {
+            // For sequential playback, don't update duration here as it's handled in setupSequentialPlayback
+            if (this.isSequentialPlayback) {
+                return;
+            }
+            
             this.durationDisplay.text(this.formatTime(this.audio.duration));
         }
         
