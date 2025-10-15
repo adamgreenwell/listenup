@@ -112,12 +112,13 @@ class ListenUp_Admin {
 			array( $this, 'sanitize_options' )
 		);
 
+		// API Configuration Tab.
 		add_settings_section(
 			'listenup_api_section',
 			/* translators: Settings section title */
 			__( 'API Configuration', 'listenup' ),
 			array( $this, 'api_section_callback' ),
-			'listenup-settings'
+			'listenup-settings-api'
 		);
 
 		add_settings_field(
@@ -125,7 +126,7 @@ class ListenUp_Admin {
 			/* translators: API key field label */
 			__( 'Murf.ai API Key', 'listenup' ),
 			array( $this, 'api_key_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-api',
 			'listenup_api_section'
 		);
 
@@ -134,17 +135,17 @@ class ListenUp_Admin {
 			/* translators: Voice selection field label */
 			__( 'Voice Selection', 'listenup' ),
 			array( $this, 'voice_selection_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-api',
 			'listenup_api_section'
 		);
 
-
+		// Display Tab.
 		add_settings_section(
 			'listenup_display_section',
 			/* translators: Settings section title */
 			__( 'Display Settings', 'listenup' ),
 			array( $this, 'display_section_callback' ),
-			'listenup-settings'
+			'listenup-settings-display'
 		);
 
 		add_settings_field(
@@ -152,7 +153,7 @@ class ListenUp_Admin {
 			/* translators: Auto placement field label */
 			__( 'Automatic Placement', 'listenup' ),
 			array( $this, 'auto_placement_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-display',
 			'listenup_display_section'
 		);
 
@@ -161,7 +162,7 @@ class ListenUp_Admin {
 			/* translators: Player position field label */
 			__( 'Player Position', 'listenup' ),
 			array( $this, 'placement_position_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-display',
 			'listenup_display_section'
 		);
 
@@ -170,16 +171,17 @@ class ListenUp_Admin {
 			/* translators: Download restriction field label */
 			__( 'Download Restrictions', 'listenup' ),
 			array( $this, 'download_restriction_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-display',
 			'listenup_display_section'
 		);
 
+		// Pre-Roll Audio Tab.
 		add_settings_section(
 			'listenup_preroll_section',
 			/* translators: Settings section title */
 			__( 'Pre-roll Audio Settings', 'listenup' ),
 			array( $this, 'preroll_section_callback' ),
-			'listenup-settings'
+			'listenup-settings-preroll'
 		);
 
 		add_settings_field(
@@ -187,16 +189,17 @@ class ListenUp_Admin {
 			/* translators: Pre-roll audio field label */
 			__( 'Pre-roll Audio File', 'listenup' ),
 			array( $this, 'preroll_audio_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-preroll',
 			'listenup_preroll_section'
 		);
 
+		// Audio Conversion Tab.
 		add_settings_section(
 			'listenup_conversion_section',
 			/* translators: Settings section title */
 			__( 'Audio Conversion Settings', 'listenup' ),
 			array( $this, 'conversion_section_callback' ),
-			'listenup-settings'
+			'listenup-settings-conversion'
 		);
 
 		add_settings_field(
@@ -204,7 +207,7 @@ class ListenUp_Admin {
 			/* translators: Conversion API endpoint field label */
 			__( 'Conversion API Endpoint', 'listenup' ),
 			array( $this, 'conversion_api_endpoint_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-conversion',
 			'listenup_conversion_section'
 		);
 
@@ -213,7 +216,7 @@ class ListenUp_Admin {
 			/* translators: Conversion API key field label */
 			__( 'Conversion API Key', 'listenup' ),
 			array( $this, 'conversion_api_key_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-conversion',
 			'listenup_conversion_section'
 		);
 
@@ -222,7 +225,7 @@ class ListenUp_Admin {
 			/* translators: Auto convert field label */
 			__( 'Automatic Conversion', 'listenup' ),
 			array( $this, 'auto_convert_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-conversion',
 			'listenup_conversion_section'
 		);
 
@@ -231,7 +234,7 @@ class ListenUp_Admin {
 			/* translators: Delete WAV after conversion field label */
 			__( 'WAV File Retention', 'listenup' ),
 			array( $this, 'delete_wav_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-conversion',
 			'listenup_conversion_section'
 		);
 
@@ -240,7 +243,7 @@ class ListenUp_Admin {
 			/* translators: MP3 bitrate field label */
 			__( 'MP3 Bitrate', 'listenup' ),
 			array( $this, 'mp3_bitrate_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-conversion',
 			'listenup_conversion_section'
 		);
 
@@ -249,7 +252,7 @@ class ListenUp_Admin {
 			/* translators: Apply loudness normalization field label */
 			__( 'Audio Normalization', 'listenup' ),
 			array( $this, 'apply_loudnorm_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-conversion',
 			'listenup_conversion_section'
 		);
 
@@ -258,16 +261,26 @@ class ListenUp_Admin {
 			/* translators: Loudness normalization parameters field label */
 			__( 'Normalization Parameters', 'listenup' ),
 			array( $this, 'loudnorm_params_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-conversion',
 			'listenup_conversion_section'
 		);
 
+		// Analytics Tab (placeholder for future feature).
+		add_settings_section(
+			'listenup_analytics_section',
+			/* translators: Settings section title */
+			__( 'Analytics Settings', 'listenup' ),
+			array( $this, 'analytics_section_callback' ),
+			'listenup-settings-analytics'
+		);
+
+		// Cloud Storage Tab.
 		add_settings_section(
 			'listenup_cloud_storage_section',
 			/* translators: Settings section title */
 			__( 'Cloud Storage Settings', 'listenup' ),
 			array( $this, 'cloud_storage_section_callback' ),
-			'listenup-settings'
+			'listenup-settings-cloud-storage'
 		);
 
 		add_settings_field(
@@ -275,7 +288,7 @@ class ListenUp_Admin {
 			/* translators: Cloud storage provider field label */
 			__( 'Storage Provider', 'listenup' ),
 			array( $this, 'cloud_storage_provider_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-cloud-storage',
 			'listenup_cloud_storage_section'
 		);
 
@@ -284,16 +297,17 @@ class ListenUp_Admin {
 			/* translators: Cloud storage settings field label */
 			__( 'Cloud Storage Settings', 'listenup' ),
 			array( $this, 'cloud_storage_settings_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-cloud-storage',
 			'listenup_cloud_storage_section'
 		);
 
+		// Debug Tab.
 		add_settings_section(
 			'listenup_debug_section',
 			/* translators: Settings section title */
 			__( 'Debug Settings', 'listenup' ),
 			array( $this, 'debug_section_callback' ),
-			'listenup-settings'
+			'listenup-settings-debug'
 		);
 
 		add_settings_field(
@@ -301,7 +315,7 @@ class ListenUp_Admin {
 			/* translators: Debug logging field label */
 			__( 'Enable Debug Logging', 'listenup' ),
 			array( $this, 'debug_enabled_field_callback' ),
-			'listenup-settings',
+			'listenup-settings-debug',
 			'listenup_debug_section'
 		);
 	}
@@ -893,27 +907,89 @@ class ListenUp_Admin {
 	 * Admin page callback.
 	 */
 	public function admin_page() {
+		// Get current tab from query string or default to 'api'.
+		$current_tab = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'api';
+
+		// Define available tabs.
+		$tabs = array(
+			'api' => __( 'API Configuration', 'listenup' ),
+			'display' => __( 'Display', 'listenup' ),
+			'preroll' => __( 'Pre-Roll Audio', 'listenup' ),
+			'conversion' => __( 'Audio Conversion', 'listenup' ),
+			'analytics' => __( 'Analytics', 'listenup' ),
+			'cloud_storage' => __( 'Cloud Storage', 'listenup' ),
+			'debug' => __( 'Debug', 'listenup' ),
+		);
+
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'ListenUp Settings', 'listenup' ); ?></h1>
-			
-			<form method="post" action="options.php">
+
+			<!-- Tab Navigation -->
+			<nav class="nav-tab-wrapper wp-clearfix" aria-label="<?php esc_attr_e( 'Secondary menu', 'listenup' ); ?>">
+				<?php foreach ( $tabs as $tab_key => $tab_label ) : ?>
+					<?php
+					$tab_url = add_query_arg(
+						array(
+							'page' => 'listenup',
+							'tab' => $tab_key,
+						),
+						admin_url( 'admin.php' )
+					);
+					$active_class = ( $current_tab === $tab_key ) ? 'nav-tab-active' : '';
+					?>
+					<a href="<?php echo esc_url( $tab_url ); ?>"
+					   class="nav-tab <?php echo esc_attr( $active_class ); ?>">
+						<?php echo esc_html( $tab_label ); ?>
+					</a>
+				<?php endforeach; ?>
+			</nav>
+
+			<!-- Tab Content -->
+			<form method="post" action="options.php" class="listenup-settings-form">
 				<?php
 				settings_fields( 'listenup_options' );
-				do_settings_sections( 'listenup-settings' );
+
+				// Render sections based on active tab.
+				switch ( $current_tab ) {
+					case 'api':
+						do_settings_sections( 'listenup-settings-api' );
+						break;
+					case 'display':
+						do_settings_sections( 'listenup-settings-display' );
+						break;
+					case 'preroll':
+						do_settings_sections( 'listenup-settings-preroll' );
+						break;
+					case 'conversion':
+						do_settings_sections( 'listenup-settings-conversion' );
+						break;
+					case 'analytics':
+						do_settings_sections( 'listenup-settings-analytics' );
+						break;
+					case 'cloud_storage':
+						do_settings_sections( 'listenup-settings-cloud-storage' );
+						break;
+					case 'debug':
+						do_settings_sections( 'listenup-settings-debug' );
+						break;
+				}
+
 				submit_button();
 				?>
 			</form>
-			
-			<div class="listenup-admin-info">
-				<h2><?php esc_html_e( 'How to Use ListenUp', 'listenup' ); ?></h2>
-				<ol>
-					<li><?php esc_html_e( 'Get your API key from Murf.ai and enter it above.', 'listenup' ); ?></li>
-					<li><?php esc_html_e( 'Configure your display preferences.', 'listenup' ); ?></li>
-					<li><?php esc_html_e( 'Edit any post or page and use the "ListenUp Audio Generation" meta box to generate audio.', 'listenup' ); ?></li>
-					<li><?php esc_html_e( 'Use the [listenup] shortcode to manually place the player anywhere in your content.', 'listenup' ); ?></li>
-				</ol>
-			</div>
+
+			<?php if ( 'api' === $current_tab ) : ?>
+				<div class="listenup-admin-info">
+					<h2><?php esc_html_e( 'How to Use ListenUp', 'listenup' ); ?></h2>
+					<ol>
+						<li><?php esc_html_e( 'Get your API key from Murf.ai and enter it above.', 'listenup' ); ?></li>
+						<li><?php esc_html_e( 'Configure your display preferences.', 'listenup' ); ?></li>
+						<li><?php esc_html_e( 'Edit any post or page and use the "ListenUp Audio Generation" meta box to generate audio.', 'listenup' ); ?></li>
+						<li><?php esc_html_e( 'Use the [listenup] shortcode to manually place the player anywhere in your content.', 'listenup' ); ?></li>
+					</ol>
+				</div>
+			<?php endif; ?>
 		</div>
 		<?php
 	}
@@ -1832,6 +1908,18 @@ class ListenUp_Admin {
 		}
 
 		return array( 'deleted' => $deleted_files, 'errors' => $errors );
+	}
+
+	/**
+	 * Analytics section callback.
+	 */
+	public function analytics_section_callback() {
+		?>
+		<p><?php esc_html_e( 'Analytics features are coming soon. This section will provide detailed insights into audio playback statistics, user engagement, and listening patterns.', 'listenup' ); ?></p>
+		<div class="notice notice-info inline">
+			<p><?php esc_html_e( 'This feature is currently in development and will be available in a future release.', 'listenup' ); ?></p>
+		</div>
+		<?php
 	}
 
 	/**
