@@ -265,13 +265,49 @@ class ListenUp_Admin {
 			'listenup_conversion_section'
 		);
 
-		// Analytics Tab (placeholder for future feature).
+		// Analytics Tab.
 		add_settings_section(
 			'listenup_analytics_section',
 			/* translators: Settings section title */
 			__( 'Analytics Settings', 'listenup' ),
 			array( $this, 'analytics_section_callback' ),
 			'listenup-settings-analytics'
+		);
+
+		add_settings_field(
+			'analytics_enabled',
+			/* translators: Analytics enabled field label */
+			__( 'Enable Analytics', 'listenup' ),
+			array( $this, 'analytics_enabled_field_callback' ),
+			'listenup-settings-analytics',
+			'listenup_analytics_section'
+		);
+
+		add_settings_field(
+			'analytics_track_plays',
+			/* translators: Track plays field label */
+			__( 'Track Plays', 'listenup' ),
+			array( $this, 'analytics_track_plays_field_callback' ),
+			'listenup-settings-analytics',
+			'listenup_analytics_section'
+		);
+
+		add_settings_field(
+			'analytics_track_duration',
+			/* translators: Track duration field label */
+			__( 'Track Listen Duration', 'listenup' ),
+			array( $this, 'analytics_track_duration_field_callback' ),
+			'listenup-settings-analytics',
+			'listenup_analytics_section'
+		);
+
+		add_settings_field(
+			'analytics_track_downloads',
+			/* translators: Track downloads field label */
+			__( 'Track Downloads', 'listenup' ),
+			array( $this, 'analytics_track_downloads_field_callback' ),
+			'listenup-settings-analytics',
+			'listenup_analytics_section'
 		);
 
 		// Cloud Storage Tab.
@@ -327,7 +363,9 @@ class ListenUp_Admin {
 	 * @return array Sanitized data.
 	 */
 	public function sanitize_options( $input ) {
-		$sanitized = array();
+		// Start with existing options to preserve values from other tabs.
+		$existing_options = get_option( 'listenup_options', array() );
+		$sanitized = is_array( $existing_options ) ? $existing_options : array();
 
 		if ( isset( $input['murf_api_key'] ) ) {
 			$sanitized['murf_api_key'] = sanitize_text_field( $input['murf_api_key'] );
@@ -453,6 +491,20 @@ class ListenUp_Admin {
 		}
 		if ( isset( $input['gcs_base_url'] ) ) {
 			$sanitized['gcs_base_url'] = esc_url_raw( $input['gcs_base_url'] );
+		}
+
+		// Analytics settings.
+		if ( isset( $input['analytics_enabled'] ) ) {
+			$sanitized['analytics_enabled'] = (bool) $input['analytics_enabled'];
+		}
+		if ( isset( $input['analytics_track_plays'] ) ) {
+			$sanitized['analytics_track_plays'] = (bool) $input['analytics_track_plays'];
+		}
+		if ( isset( $input['analytics_track_duration'] ) ) {
+			$sanitized['analytics_track_duration'] = (bool) $input['analytics_track_duration'];
+		}
+		if ( isset( $input['analytics_track_downloads'] ) ) {
+			$sanitized['analytics_track_downloads'] = (bool) $input['analytics_track_downloads'];
 		}
 
 		return $sanitized;
@@ -1915,10 +1967,92 @@ class ListenUp_Admin {
 	 */
 	public function analytics_section_callback() {
 		?>
-		<p><?php esc_html_e( 'Analytics features are coming soon. This section will provide detailed insights into audio playback statistics, user engagement, and listening patterns.', 'listenup' ); ?></p>
+		<p><?php esc_html_e( 'Configure event tracking that pushes audio playback data to the dataLayer for Google Tag Manager and Google Analytics. Track plays, listen duration, and downloads to understand how your audience engages with your content.', 'listenup' ); ?></p>
 		<div class="notice notice-info inline">
-			<p><?php esc_html_e( 'This feature is currently in development and will be available in a future release.', 'listenup' ); ?></p>
+			<p><?php esc_html_e( 'Note: This requires Google Tag Manager or Google Analytics to be installed on your site. Events will be pushed to window.dataLayer for you to configure in GTM.', 'listenup' ); ?></p>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Analytics enabled field callback.
+	 */
+	public function analytics_enabled_field_callback() {
+		$options = get_option( 'listenup_options' );
+		$analytics_enabled = isset( $options['analytics_enabled'] ) ? $options['analytics_enabled'] : false;
+
+		printf(
+			'<input type="checkbox" id="analytics_enabled" name="listenup_options[analytics_enabled]" value="1" %s />',
+			checked( $analytics_enabled, true, false )
+		);
+		?>
+		<label for="analytics_enabled"><?php esc_html_e( 'Enable analytics tracking', 'listenup' ); ?></label>
+		<p class="description">
+			<?php esc_html_e( 'When enabled, the plugin will track audio playback statistics for your content.', 'listenup' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Analytics track plays field callback.
+	 */
+	public function analytics_track_plays_field_callback() {
+		$options = get_option( 'listenup_options' );
+		$track_plays = isset( $options['analytics_track_plays'] ) ? $options['analytics_track_plays'] : true;
+		$analytics_enabled = isset( $options['analytics_enabled'] ) ? $options['analytics_enabled'] : false;
+
+		printf(
+			'<input type="checkbox" id="analytics_track_plays" name="listenup_options[analytics_track_plays]" value="1" %s %s />',
+			checked( $track_plays, true, false ),
+			disabled( $analytics_enabled, false, false )
+		);
+		?>
+		<label for="analytics_track_plays"><?php esc_html_e( 'Track total plays and most popular audio files', 'listenup' ); ?></label>
+		<p class="description">
+			<?php esc_html_e( 'Records each time an audio file is played. Includes a "Top 10 Most Played" report.', 'listenup' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Analytics track duration field callback.
+	 */
+	public function analytics_track_duration_field_callback() {
+		$options = get_option( 'listenup_options' );
+		$track_duration = isset( $options['analytics_track_duration'] ) ? $options['analytics_track_duration'] : true;
+		$analytics_enabled = isset( $options['analytics_enabled'] ) ? $options['analytics_enabled'] : false;
+
+		printf(
+			'<input type="checkbox" id="analytics_track_duration" name="listenup_options[analytics_track_duration]" value="1" %s %s />',
+			checked( $track_duration, true, false ),
+			disabled( $analytics_enabled, false, false )
+		);
+		?>
+		<label for="analytics_track_duration"><?php esc_html_e( 'Track average listen duration', 'listenup' ); ?></label>
+		<p class="description">
+			<?php esc_html_e( 'Tracks how long users listen to audio files as a percentage of total duration. Helps measure engagement quality.', 'listenup' ); ?>
+		</p>
+		<?php
+	}
+
+	/**
+	 * Analytics track downloads field callback.
+	 */
+	public function analytics_track_downloads_field_callback() {
+		$options = get_option( 'listenup_options' );
+		$track_downloads = isset( $options['analytics_track_downloads'] ) ? $options['analytics_track_downloads'] : true;
+		$analytics_enabled = isset( $options['analytics_enabled'] ) ? $options['analytics_enabled'] : false;
+
+		printf(
+			'<input type="checkbox" id="analytics_track_downloads" name="listenup_options[analytics_track_downloads]" value="1" %s %s />',
+			checked( $track_downloads, true, false ),
+			disabled( $analytics_enabled, false, false )
+		);
+		?>
+		<label for="analytics_track_downloads"><?php esc_html_e( 'Track total downloads', 'listenup' ); ?></label>
+		<p class="description">
+			<?php esc_html_e( 'Records when users download audio files. Includes a "Top 10 Most Downloaded" report.', 'listenup' ); ?>
+		</p>
 		<?php
 	}
 
