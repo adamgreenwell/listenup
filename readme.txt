@@ -4,7 +4,7 @@ Tags: audio, text-to-speech, accessibility, tts
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.3.22
+Stable tag: 1.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -124,6 +124,13 @@ location ~* ^/wp-content/uploads/listenup-audio/ {
 After implementing server-level blocks, audio will still play normally through the WordPress player because the plugin reads files directly from the filesystem, bypassing the web server's URL routing entirely.
 
 == Changelog ==
+
+= 1.4.1 =
+* Implement tracking feature to push events to the datalayer for GTM and GA4 consumption
+
+= 1.4.0 =
+* Add option to specify conversion output bitrate
+* Add option to apply normalization with parameters to conversion process
 
 = 1.3.22 =
 * Fix autoplay feature in audio library
