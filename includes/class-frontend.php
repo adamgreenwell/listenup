@@ -99,6 +99,30 @@ class ListenUp_Frontend {
 				'isUserLoggedIn' => is_user_logged_in(),
 			)
 		);
+
+		// Enqueue analytics tracker if analytics is enabled.
+		$analytics_enabled = isset( $options['analytics_enabled'] ) ? $options['analytics_enabled'] : false;
+		if ( $analytics_enabled ) {
+			wp_enqueue_script(
+				'listenup-analytics-tracker',
+				LISTENUP_PLUGIN_URL . 'assets/js/analytics-tracker.js',
+				array(),
+				LISTENUP_VERSION,
+				true
+			);
+
+			// Localize analytics settings.
+			wp_localize_script(
+				'listenup-analytics-tracker',
+				'listenupAnalytics',
+				array(
+					'trackPlays' => isset( $options['analytics_track_plays'] ) ? $options['analytics_track_plays'] : true,
+					'trackDuration' => isset( $options['analytics_track_duration'] ) ? $options['analytics_track_duration'] : true,
+					'trackDownloads' => isset( $options['analytics_track_downloads'] ) ? $options['analytics_track_downloads'] : true,
+					'debug' => defined( 'WP_DEBUG' ) && WP_DEBUG,
+				)
+			);
+		}
 	}
 
 	/**
@@ -171,7 +195,16 @@ class ListenUp_Frontend {
 	 */
 	public function generate_audio_player( $audio_data, $post_id = 0 ) {
 		$player_id = 'listenup-player-' . $post_id;
-		
+
+		// Get post title for analytics
+		$post_title = '';
+		if ( $post_id ) {
+			$post = get_post( $post_id );
+			if ( $post ) {
+				$post_title = $post->post_title;
+			}
+		}
+
 		// Handle both single URL and chunked audio data
 		$audio_url = '';
 		$audio_chunks = null;
@@ -229,7 +262,7 @@ class ListenUp_Frontend {
 		$pre_roll_manager = ListenUp_Pre_Roll_Manager::get_instance();
 		$has_pre_roll = $pre_roll_manager->get_pre_roll_file() !== false;
 		?>
-		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>" data-post-id="<?php echo esc_attr( $post_id ); ?>" <?php echo $audio_chunks ? 'data-audio-chunks="' . esc_attr( wp_json_encode( $audio_chunks ) ) . '"' : ''; ?> <?php echo $is_cloud_storage ? 'data-cloud-storage="true" data-cloud-url="' . esc_attr( $this->convert_to_https( $cloud_url ) ) . '"' : ''; ?> <?php echo $has_pre_roll ? 'data-has-preroll="true"' : ''; ?>>
+		<div class="listenup-audio-player" id="<?php echo esc_attr( $player_id ); ?>" data-post-id="<?php echo esc_attr( $post_id ); ?>" data-post-title="<?php echo esc_attr( $post_title ); ?>" <?php echo $audio_chunks ? 'data-audio-chunks="' . esc_attr( wp_json_encode( $audio_chunks ) ) . '"' : ''; ?> <?php echo $is_cloud_storage ? 'data-cloud-storage="true" data-cloud-url="' . esc_attr( $this->convert_to_https( $cloud_url ) ) . '"' : ''; ?> <?php echo $has_pre_roll ? 'data-has-preroll="true"' : ''; ?>>
 			<div class="listenup-player-header">
 				<h3 class="listenup-player-title">
 					<?php /* translators: Audio player title */ esc_html_e( 'Listen to this content', 'listenup' ); ?>
