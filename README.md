@@ -54,6 +54,31 @@ Activate the plugin through the WordPress admin panel.
 3. Select your preferred **Voice**
 4. Configure **Display Settings** (auto-placement, position, etc.)
 
+### Analytics Configuration
+
+Enabling analytics tracking, in the current iteration, will send the events to the Google Tag Manager datalayer.+
+
+The javascript-based tracker pushes these events to window.dataLayer:
+
+- listenup_audio_play: When audio starts playing
+  - audio_post_id
+  - audio_post_title
+  - audio_url
+  - audio_duration 
+- listenup_audio_progress: At 25%, 50%, 75%, and 100% completion
+  - audio_post_id
+  - audio_post_title
+  - audio_url
+  - audio_duration
+  - audio_current_time
+  - audio_percent_complete
+- listenup_audio_download: When download button is clicked
+  - audio_post_id
+  - audio_post_title
+  - audio_download_url
+
+***Google Analytics and Google Tag Manager must be configured to capture these events!***
+
 ### Cloud Storage Setup (Optional but Recommended)
 
 Cloud storage is **highly recommended** for:
@@ -204,6 +229,9 @@ For issues, feature requests, or questions, please contact the plugin author.
 GPL v2 or later
 
 ## Changelog
+
+### 1.4.1
+* Implement tracking feature to push events to the datalayer for GTM and GA4 consumption
 
 ### 1.4.0
 * Add option to specify conversion output bitrate
